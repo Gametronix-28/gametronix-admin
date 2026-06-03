@@ -7,6 +7,7 @@ from utils.pdf import create_repair_order_pdf
 from db.product import list_inventory
 from db.repair import (
     register_repair, add_repair_payment, deliver_repair,
+    update_repair_status, mark_repair_paid,
     get_repair, list_repairs, list_repair_parts, list_repair_external_parts,
     list_repair_payments, list_pending_repairs, list_repairs_by_client,
 )
@@ -162,45 +163,102 @@ def _render_new_order(parts):
 # ── Tab 2: Órdenes ──────────────────────────────────────
 
 def _render_orders_list():
-    st.subheader("Órdenes de reparación")
+    st.subheader("Ordenes de reparacion")
     repairs_df = list_repairs(300)
     st.dataframe(repairs_df, use_container_width=True, hide_index=True)
 
-    if not repairs_df.empty:
-        st.subheader("PDF de orden de reparación")
-        repair_pdf_id = st.number_input(
-            "ID de reparación para generar PDF", min_value=1, step=1, key="repair_pdf_id",
+    if repairs_df.empty:
+        return
+
+    st.divider()
+
+    # ── Modificar estado ──────────────────────────────
+    st.subheader("Modificar estado de reparacion")
+    with st.form("update_status_form"):
+        c1, c2 = st.columns(2)
+        repair_id_status = c1.number_input("ID de reparacion", min_value=1, step=1, key="status_id")
+        new_status = c2.selectbox(
+            "Nuevo estado",
+            ["Recibido", "En proceso", "Esperando repuesto", "Terminado", "Pagado", "Entregado"],
+            key="new_status",
         )
-        if st.button("Generar PDF orden de reparación"):
+        if st.form_submit_button("Actualizar estado"):
             try:
-                repair = get_repair(int(repair_pdf_id))
-                if not repair:
-                    st.error("No encontré esa reparación.")
-                else:
-                    stock_parts_df = list_repair_parts(300)
-                    external_parts_df = list_repair_external_parts(300)
-                    payments_df = list_repair_payments(300)
-                    pdf_file_path = create_repair_order_pdf(
-                        repair,
-                        stock_parts_df.to_dict("records"),
-                        external_parts_df.to_dict("records"),
-                        payments_df.to_dict("records"),
-                    )
-                    with open(pdf_file_path, "rb") as f:
-                        st.download_button(
-                            "Descargar PDF orden",
-                            data=f,
-                            file_name=f"Orden_{repair.get('order_code')}.pdf",
-                            mime="application/pdf",
-                        )
+                update_repair_status(int(repair_id_status), new_status)
+                st.success(f"Estado actualizado a '{new_status}'.")
+                st.rerun()
             except Exception as e:
                 st.error(str(e))
 
-    st.subheader("Repuestos de bodega usados")
-    st.dataframe(list_repair_parts(300), use_container_width=True, hide_index=True)
+    st.divider()
 
-    st.subheader("Repuestos externos comprados por fuera")
-    st.dataframe(list_repair_external_parts(300), use_container_width=True, hide_index=True)
+    # ── Marcar como pagado ────────────────────────────
+    st.subheader("Marcar reparacion como PAGADA")
+    st.caption("Paga el saldo pendiente completo y envia el dinero a Caja Colombia.")
+
+    pending = repairs_df[repairs_df["balance_due"] > 0] if "balance_due" in repairs_df.columns else repairs_df
+
+    if pending.empty:
+        st.success("Todas las reparaciones estan pagadas.")
+    else:
+        with st.form("mark_paid_form"):
+            c1, c2 = st.columns(2)
+            repair_label = c1.selectbox(
+                "Reparacion con saldo pendiente",
+                pending.apply(
+                    lambda r: f"#{r['id']} - {r['order_code']} - {r['client']} - {r['device']} - Pendiente: {r['balance_due']}",
+                    axis=1,
+                ),
+                key="mark_paid_select",
+            )
+            repair_id_pay = int(repair_label.split(" - ")[0])
+            payment_method = c2.selectbox(
+                "Medio de pago",
+                ["Efectivo", "Transferencia - Bancolombia", "Transferencia - Nequi", "Tarjeta", "Otro"],
+                key="mark_paid_method",
+            )
+            if st.form_submit_button("Marcar como PAGADO (pagar saldo completo)"):
+                try:
+                    mark_repair_paid(
+                        repair_id_pay, payment_method,
+                        st.session_state.user["username"],
+                    )
+                    st.success("Reparacion marcada como PAGADA. El dinero se sumo a Caja Colombia.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+
+    st.divider()
+
+    # ── PDF ───────────────────────────────────────────
+    st.subheader("PDF de orden de reparacion")
+    repair_pdf_id = st.number_input(
+        "ID de reparacion para generar PDF", min_value=1, step=1, key="repair_pdf_id",
+    )
+    if st.button("Generar PDF orden de reparacion"):
+        try:
+            repair = get_repair(int(repair_pdf_id))
+            if not repair:
+                st.error("No encontre esa reparacion.")
+            else:
+                stock_parts_df = list_repair_parts(300)
+                external_parts_df = list_repair_external_parts(300)
+                payments_df = list_repair_payments(300)
+                pdf_file_path = create_repair_order_pdf(
+                    repair,
+                    stock_parts_df.to_dict("records"),
+                    external_parts_df.to_dict("records"),
+                    payments_df.to_dict("records"),
+                )
+                with open(pdf_file_path, "rb") as f:
+                    st.download_button(
+                        "Descargar PDF orden",
+                        data=f,
+                        file_name=f"Orden_{repair.get('order_code')}.pdf",
+                        mime="application/pdf",
+                    )
+        except Exception as e:
+            st.error(str(e))
 
 
 # ── Tab 3: Abonos / pagos ───────────────────────────────

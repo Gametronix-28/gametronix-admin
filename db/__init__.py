@@ -38,6 +38,7 @@ from db.shipment import (
 # Repair
 from db.repair import (
     register_repair, add_repair_payment, deliver_repair,
+    update_repair_status, mark_repair_paid,
     get_repair, list_repairs, list_repairs_between,
     list_repair_parts, list_repair_external_parts,
     list_repair_payments, list_pending_repairs, list_repairs_by_client,

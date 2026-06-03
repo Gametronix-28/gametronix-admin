@@ -133,6 +133,57 @@ def add_repair_payment(repair_id, amount, payment_method, notes, user):
         )
 
 
+def update_repair_status(repair_id, new_status):
+    """Cambia el estado de una reparacion (sin afectar pagos ni caja)."""
+    with get_db() as con:
+        cur = con.cursor()
+        r = cur.execute(
+            "SELECT * FROM repairs WHERE id = ? AND active = 1", (repair_id,)
+        ).fetchone()
+        if not r:
+            raise ValueError("Reparacion no encontrada.")
+        cur.execute(
+            "UPDATE repairs SET status = ? WHERE id = ?",
+            (new_status, repair_id),
+        )
+
+
+def mark_repair_paid(repair_id, payment_method, user):
+    """
+    Marca una reparacion como totalmente pagada.
+    Paga el saldo pendiente completo y lo envia a Caja Colombia.
+    """
+    with get_db() as con:
+        cur = con.cursor()
+        r = cur.execute(
+            "SELECT * FROM repairs WHERE id = ? AND active = 1", (repair_id,)
+        ).fetchone()
+        if not r:
+            raise ValueError("Reparacion no encontrada.")
+
+        balance = float(r["balance_due"] or 0)
+        if balance <= 0:
+            raise ValueError("Esta reparacion ya esta totalmente pagada.")
+
+        # Registrar el pago completo del saldo
+        cur.execute(
+            "UPDATE repairs SET amount_paid = total, balance_due = 0, "
+            "status = CASE WHEN status IN ('Recibido','En proceso','Terminado','Esperando repuesto') "
+            "THEN 'Pagado' ELSE status END, "
+            "payment_method = ? WHERE id = ?",
+            (payment_method, repair_id),
+        )
+        cur.execute(
+            "INSERT INTO repair_payments(repair_id, date, amount, payment_method, notes, user) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (repair_id, now(), balance, payment_method, "Pago total del saldo", user),
+        )
+        cashbox_add(
+            cur, "Caja Colombia", balance, "COP", "pago_reparacion",
+            "repairs", repair_id, f"Pago total reparacion {r['order_code']}", user,
+        )
+
+
 def deliver_repair(repair_id, notes, user):
     with get_db() as con:
         cur = con.cursor()
@@ -140,9 +191,9 @@ def deliver_repair(repair_id, notes, user):
             "SELECT * FROM repairs WHERE id = ? AND active = 1", (repair_id,)
         ).fetchone()
         if not r:
-            raise ValueError("ReparaciÃ³n no encontrada.")
+            raise ValueError("Reparacion no encontrada.")
         if float(r["balance_due"] or 0) > 0:
-            raise ValueError("No se puede entregar: la reparaciÃ³n tiene saldo pendiente.")
+            raise ValueError("No se puede entregar: la reparacion tiene saldo pendiente.")
         cur.execute(
             "UPDATE repairs SET status = 'Entregado', delivered_at = ?, "
             "notes = COALESCE(notes, '') || ? WHERE id = ?",
