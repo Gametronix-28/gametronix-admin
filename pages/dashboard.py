@@ -45,13 +45,17 @@ def render():
     sc2.metric("Saldo Caja USA", money(saldo_usa, "USD"))
 
     with st.form("inject_capital"):
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
         cashbox = c1.selectbox("Caja destino", ["Caja Colombia", "Caja USA"])
         currency = "COP" if cashbox == "Caja Colombia" else "USD"
         step_val = 10000.0 if currency == "COP" else 10.0
         amount = c2.number_input(
             f"Monto a inyectar ({currency})",
             min_value=0.0, step=step_val,
+        )
+        payment_method = c3.selectbox(
+            "Medio de pago / banco",
+            ["Efectivo", "Transferencia - Bancolombia", "Transferencia - Nequi", "Tarjeta", "Otro"],
         )
         notes = st.text_input("Concepto", placeholder="Ej: Capital inicial, inversion del socio...")
 
@@ -60,10 +64,10 @@ def render():
                 st.error("El monto debe ser mayor a cero.")
             else:
                 inject_capital(
-                    cashbox, amount, notes,
+                    cashbox, amount, payment_method, notes,
                     st.session_state.user["username"],
                 )
                 st.success(
-                    f"Capital inyectado: {money(amount, currency)} a {cashbox}."
+                    f"Capital inyectado: {money(amount, currency)} a {cashbox} via {payment_method}."
                 )
                 st.rerun()
