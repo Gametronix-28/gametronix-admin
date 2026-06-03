@@ -181,26 +181,28 @@ def _render_orders_list():
         rid = int(row["id"])
         order = row.get("order_code", f"REP-{rid:05d}")
         client = row.get("client") or "-"
+        phone = row.get("phone") or "-"
         device = row.get("device") or "-"
         current_status = row.get("status") or "Recibido"
         balance = float(row.get("balance_due") or 0)
         total = float(row.get("total") or 0)
-        paid = float(row.get("amount_paid") or 0)
 
         # Fila principal: info + estado + acciones
-        c1, c2, c3, c4, c5, c6, c7 = st.columns([1, 1.4, 1, 1, 1.3, 1.8, 0.6])
+        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([0.9, 1.2, 1.1, 1.1, 0.8, 1.1, 1.8, 0.5])
 
         with c1:
             st.write(f"**{order}**")
         with c2:
             st.write(client)
         with c3:
-            st.write(device)
+            st.write(phone)
         with c4:
+            st.write(device)
+        with c5:
             st.write(money(total, "COP"))
 
         # Estado editable
-        with c5:
+        with c6:
             status_idx = status_options.index(current_status) if current_status in status_options else 0
             new_status = st.selectbox(
                 "Estado",
@@ -211,7 +213,7 @@ def _render_orders_list():
             )
 
         # Pago / abono inline
-        with c6:
+        with c7:
             if balance > 0:
                 st.caption(f"Pend: {money(balance, 'COP')}")
                 ab1, ab2 = st.columns([1, 1])
@@ -254,7 +256,7 @@ def _render_orders_list():
                 st.success("Pagado")
 
         # PDF
-        with c7:
+        with c8:
             if st.button("PDF", key=f"pdfbtn_{rid}"):
                 try:
                     repair = get_repair(rid)
