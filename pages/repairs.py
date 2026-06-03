@@ -216,7 +216,7 @@ def _render_orders_list():
                 with ab1:
                     pay_method = st.selectbox(
                         "Metodo",
-                        ["Efectivo", "Transf-Bcol", "Transf-Nequi", "Tarjeta", "Otro"],
+                        ["Efectivo", "Transferencia - Bancolombia", "Transferencia - Nequi", "Tarjeta", "Otro"],
                         key=f"paymethod_{rid}",
                         label_visibility="collapsed",
                     )
