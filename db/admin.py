@@ -93,7 +93,9 @@ def _void_repair(cur, record_id):
         "SELECT * FROM repairs WHERE id = ? AND active = 1", (record_id,)
     ).fetchone()
     if not r:
-        raise ValueError("ReparaciÃ³n no encontrada o ya anulada.")
+        raise ValueError("Reparacion no encontrada o ya anulada.")
+
+    # Devolver repuestos de bodega al stock
     parts = cur.execute(
         "SELECT * FROM repair_parts WHERE repair_id = ? AND active = 1", (record_id,)
     ).fetchall()
@@ -102,15 +104,26 @@ def _void_repair(cur, record_id):
             "UPDATE products SET stock = stock + ? WHERE id = ?",
             (part["qty"], part["part_product_id"]),
         )
-    paid = float(r["amount_paid"] or 0)
-    if paid > 0:
-        cashbox_add(
-            cur, "Caja Colombia", -paid, "COP", "anulacion_reparacion",
-            "repairs", record_id, f"AnulaciÃ³n reparaciÃ³n {record_id}", "admin",
+
+    # Revertir CADA abono/pago individualmente en caja
+    payments = cur.execute(
+        "SELECT * FROM repair_payments WHERE repair_id = ? AND active = 1", (record_id,)
+    ).fetchall()
+    for payment in payments:
+        paid = float(payment["amount"] or 0)
+        if paid > 0:
+            cashbox_add(
+                cur, "Caja Colombia", -paid, "COP", "anulacion_abono",
+                "repair_payments", payment["id"],
+                f"Anulacion abono #{payment['id']} reparacion {record_id}", "admin",
+            )
+        cur.execute(
+            "UPDATE repair_payments SET active = 0 WHERE id = ?", (payment["id"],)
         )
+
+    # Marcar todo como inactivo
     cur.execute("UPDATE repair_parts SET active = 0 WHERE repair_id = ?", (record_id,))
     cur.execute("UPDATE repair_external_parts SET active = 0 WHERE repair_id = ?", (record_id,))
-    cur.execute("UPDATE repair_payments SET active = 0 WHERE repair_id = ?", (record_id,))
     cur.execute("UPDATE repairs SET active = 0 WHERE id = ?", (record_id,))
 
 
