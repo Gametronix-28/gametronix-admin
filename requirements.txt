@@ -1,0 +1,6 @@
+streamlit
+pandas
+openpyxl
+pyinstaller
+reportlab
+libsql-client

@@ -1,0 +1,38 @@
+# GAMETRONIX Admin Pro - .gitignore
+
+# Base de datos local
+*.db
+
+# Archivos de prueba
+_test_*.py
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Streamlit
+.streamlit/secrets.toml
+
+# PDFs generados
+facturas_pdf/
+ordenes_reparacion_pdf/
+
+# Excel exportado
+*.xlsx
+
+# Backups viejos
+*.bak
+
+# PyInstaller
+dist/
+build/
+*.spec
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
