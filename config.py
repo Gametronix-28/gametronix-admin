@@ -45,6 +45,26 @@ DEFAULT_CASHBOXES = [
 CURRENCY_SYMBOLS = {"COP": "COP", "USD": "USD"}
 DEFAULT_RATE = 4000.0
 
+# ── Menú de la aplicación ──────────────────────────────────
+MENU_OPTIONS = [
+    "Dashboard ganancias",
+    "Caja USA",
+    "Compra USA",
+    "Bodega USA",
+    "Envíos USA",
+    "Caja Colombia",
+    "Compra Colombia",
+    "Bodega Colombia",
+    "Venta Colombia",
+    "Bodega Repuestos",
+    "Taller Reparaciones",
+    "Transferencia con tasa",
+    "Gastos por caja",
+    "Borrar / anular registros",
+    "Usuarios",
+    "Importar / Exportar",
+]
+
 # ── Roles del sistema ──────────────────────────────────────
 ROLES = ["admin", "caja_colombia", "caja_usa", "inventario", "consulta", "personalizado"]
 

@@ -3,8 +3,7 @@
 import streamlit as st
 import pandas as pd
 from components.layout import header
-from config import ROLES, ROLE_PERMISSIONS
-from pages import MENU_OPTIONS
+from config import ROLES, ROLE_PERMISSIONS, MENU_OPTIONS
 from db.auth import list_users, add_user
 
 

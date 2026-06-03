@@ -1,6 +1,7 @@
 """Router de páginas — mapea opciones del menú a funciones render."""
 
 import streamlit as st
+from config import MENU_OPTIONS
 
 from pages.login import render_login
 from pages.dashboard import render as render_dashboard
@@ -19,26 +20,6 @@ from pages.expenses import render as render_expenses
 from pages.voids import render as render_voids
 from pages.users import render as render_users
 from pages.exports import render as render_exports
-
-
-MENU_OPTIONS = [
-    "Dashboard ganancias",
-    "Caja USA",
-    "Compra USA",
-    "Bodega USA",
-    "Envíos USA",
-    "Caja Colombia",
-    "Compra Colombia",
-    "Bodega Colombia",
-    "Venta Colombia",
-    "Bodega Repuestos",
-    "Taller Reparaciones",
-    "Transferencia con tasa",
-    "Gastos por caja",
-    "Borrar / anular registros",
-    "Usuarios",
-    "Importar / Exportar",
-]
 
 # Mapa: nombre de página → función render
 _PAGE_MAP = {

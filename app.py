@@ -4,10 +4,10 @@ App Streamlit para gestion de inventario, ventas y reparaciones.
 """
 
 import streamlit as st
-from config import APP_CONFIG, CSS_STYLES
+from config import APP_CONFIG, CSS_STYLES, MENU_OPTIONS
 from db.schema import initialize_database
 from components.layout import render_topbar
-from pages import MENU_OPTIONS, render_page
+from pages import render_page
 from pages.login import render_login
 
 
