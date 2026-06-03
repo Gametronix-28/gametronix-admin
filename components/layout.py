@@ -93,7 +93,12 @@ def render_topbar(user, menu_options, on_logout):
     # Menu horizontal con columnas
     cols_per_row = 8
     n = len(menu_options)
-    page_idx = menu_options.index(st.session_state.get("page", menu_options[0]))
+    current_page = st.session_state.get("page", menu_options[0])
+    # Si la pagina actual no esta en el menu (cambio de rol), ir al primer modulo
+    if current_page not in menu_options:
+        current_page = menu_options[0]
+        st.session_state.page = current_page
+    page_idx = menu_options.index(current_page)
 
     # Generar botones del menu
     selected = None
