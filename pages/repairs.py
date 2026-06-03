@@ -130,10 +130,11 @@ def _render_new_order(parts):
 
         # Vista previa de costos
         stock_cost_preview = 0.0
-        for part_id, qty in used_parts:
-            row = parts[parts["id"] == part_id]
-            if not row.empty:
-                stock_cost_preview += float(row.iloc[0]["cost"] or 0) * qty
+        if not parts.empty:
+            for part_id, qty in used_parts:
+                row = parts[parts["id"] == part_id]
+                if not row.empty:
+                    stock_cost_preview += float(row.iloc[0]["cost"] or 0) * qty
 
         external_cost_preview = sum(p["qty"] * p["unit_cost"] for p in external_parts)
         total_cost_preview = stock_cost_preview + external_cost_preview
@@ -211,7 +212,7 @@ def _render_orders_list():
                 ),
                 key="mark_paid_select",
             )
-            repair_id_pay = int(repair_label.split(" - ")[0])
+            repair_id_pay = int(repair_label.split(" - ")[0].replace("#", ""))
             payment_method = c2.selectbox(
                 "Medio de pago",
                 ["Efectivo", "Transferencia - Bancolombia", "Transferencia - Nequi", "Tarjeta", "Otro"],
