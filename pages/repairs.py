@@ -19,9 +19,9 @@ def render():
 
     parts = list_inventory("Repuestos")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "Nueva orden", "Ordenes y pagos",
-        "Entrega", "Pendientes", "Historial cliente",
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "Nueva orden", "Ordenes y pagos", "Historial de pagos",
+        "Entrega", "Pendientes", "Historial de servicio",
     ])
 
     with tab1:
@@ -29,10 +29,12 @@ def render():
     with tab2:
         _render_orders_list()
     with tab3:
-        _render_delivery()
+        _render_payments_history()
     with tab4:
-        _render_pending()
+        _render_delivery()
     with tab5:
+        _render_pending()
+    with tab6:
         _render_client_history()
 
 
@@ -288,59 +290,16 @@ def _render_orders_list():
 
         st.divider()
 
-    # ── Historial de pagos ──────────────────────────────
+
+# ── Historial de pagos ─────────────────────────────────
+
+def _render_payments_history():
     st.subheader("Historial de pagos de taller")
-    st.dataframe(list_repair_payments(300), use_container_width=True, hide_index=True)
-
-
-# ── Tab 3: Abonos / pagos ───────────────────────────────
-
-def _render_payments():
-    st.subheader("Registrar abono o pago a reparación")
-    repairs_df = list_repairs(300)
-
-    if repairs_df.empty:
-        st.success("No hay reparaciones registradas.")
-        return
-
-    pending_df = repairs_df[
-        repairs_df["balance_due"] > 0
-    ] if "balance_due" in repairs_df.columns else repairs_df
-
-    if pending_df.empty:
-        st.success("No hay reparaciones con saldo pendiente.")
+    payments_df = list_repair_payments(300)
+    if payments_df.empty:
+        st.info("No hay pagos registrados.")
     else:
-        with st.form("repair_payment_form"):
-            repair_label = st.selectbox(
-                "Reparación con saldo pendiente",
-                pending_df.apply(
-                    lambda r: f"{r['id']} - {r['order_code']} - {r['client']} - "
-                              f"{r['device']} - Saldo {r['balance_due']}",
-                    axis=1,
-                ),
-            )
-            repair_id = int(repair_label.split(" - ")[0])
-            c1, c2 = st.columns(2)
-            amount = c1.number_input("Valor del abono COP", min_value=0.0, step=1000.0)
-            pay_method = c2.selectbox(
-                "Medio de pago",
-                ["Efectivo", "Transferencia - Bancolombia", "Transferencia - Nequi", "Tarjeta", "Otro"],
-            )
-            pay_notes = st.text_input("Nota del abono")
-
-            if st.form_submit_button("Registrar abono"):
-                try:
-                    add_repair_payment(
-                        repair_id, amount, pay_method, pay_notes,
-                        st.session_state.user["username"],
-                    )
-                    st.success("Abono registrado y sumado a Caja Colombia.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(str(e))
-
-    st.subheader("Historial de pagos de taller")
-    st.dataframe(list_repair_payments(300), use_container_width=True, hide_index=True)
+        st.dataframe(payments_df, use_container_width=True, hide_index=True)
 
 
 # ── Tab 4: Entrega ──────────────────────────────────────
