@@ -226,30 +226,40 @@ async def migrate():
     total_migrated = 0
 
     for table in TABLE_NAMES:
-        rows = local.execute(f"SELECT * FROM {table} WHERE active IS NULL OR active = 1").fetchall()
+        # Verificar si la tabla tiene columna 'active'
+        cols_info = local.execute(f"PRAGMA table_info({table})").fetchall()
+        col_names = [c[1] for c in cols_info]
+        has_active = "active" in col_names
+
+        if has_active:
+            rows = local.execute(
+                f"SELECT * FROM [{table}] WHERE active IS NULL OR active = 1"
+            ).fetchall()
+        else:
+            rows = local.execute(f"SELECT * FROM [{table}]").fetchall()
+
         if not rows:
             print(f"  {table}: 0 filas")
             continue
 
-        columns = [d[0] for d in rows[0].keys()] if hasattr(rows[0], "keys") else []
-        if not columns:
-            # Fallback: obtener columnas desde PRAGMA
-            cols_info = local.execute(f"PRAGMA table_info({table})").fetchall()
-            columns = [c[1] for c in cols_info]
+        columns = col_names  # usar los nombres de PRAGMA
 
+        # Excluir columnas que no existen en Turso (ej: generated columns)
         placeholders = ", ".join(["?"] * len(columns))
         cols_str = ", ".join(columns)
-        sql = f"INSERT OR REPLACE INTO {table} ({cols_str}) VALUES ({placeholders})"
+        sql = f"INSERT OR IGNORE INTO {table} ({cols_str}) VALUES ({placeholders})"
 
+        ok_count = 0
         for row in rows:
-            values = [row[c] for c in columns]
             try:
+                values = [row[c] for c in columns]
                 await client.execute(sql, values)
-                total_migrated += 1
+                ok_count += 1
             except Exception as e:
-                print(f"  ⚠ Error en {table} id={row[0]}: {e}")
+                print(f"  ⚠ Error en {table} id={row[0] if row else '?'}: {e}")
 
-        print(f"  {table}: {len(rows)} filas")
+        total_migrated += ok_count
+        print(f"  {table}: {ok_count}/{len(rows)} filas migradas")
 
     local.close()
     await client.close()

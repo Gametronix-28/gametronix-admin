@@ -1,14 +1,57 @@
 """
-Adaptador Turso: wrapper síncrono que imita sqlite3.Connection/Cursor
-usando libsql-client (async) por debajo con asyncio.run().
-
-Esto permite que los módulos db/ funcionen con cambios mínimos,
-simplemente importando desde db.connection (que decide si usa SQLite o Turso).
+Adaptador Turso: wrapper sincrono que imita sqlite3.Connection/Cursor
+usando libsql-client (async) por debajo con un event loop persistente.
 """
 
 import asyncio
+import atexit
 import pandas as pd
 import libsql_client
+
+# Event loop persistente (nunca se cierra hasta que salga el proceso)
+_LOOP = asyncio.new_event_loop()
+
+
+def _run(coro):
+    """Ejecuta una corrutina en el loop persistente y retorna el resultado."""
+    return _LOOP.run_until_complete(coro)
+
+
+def _cleanup():
+    """Cierra el loop al salir del proceso."""
+    try:
+        _LOOP.close()
+    except Exception:
+        pass
+
+
+atexit.register(_cleanup)
+
+
+class TursoRow:
+    """Wrapper que imita sqlite3.Row para compatibilidad con dict(row)."""
+
+    def __init__(self, data, columns=None):
+        self._data = data
+        self._columns = columns or []
+
+    def keys(self):
+        return self._columns
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._data[key]
+        if isinstance(key, str) and self._columns:
+            idx = self._columns.index(key)
+            return self._data[idx]
+        return self._data[key]
+
+    def __iter__(self):
+        # Soporte para dict(row): itera sobre (key, value)
+        return iter(zip(self._columns, self._data))
+
+    def __len__(self):
+        return len(self._data)
 
 
 class TursoCursor:
@@ -20,24 +63,26 @@ class TursoCursor:
         self.rowcount = 0
         self._last_result = None
         self._rows = []
+        self._columns = []
 
     def execute(self, sql, params=None):
-        """Ejecuta una consulta SQL. Retorna self para compatibilidad."""
-        coro = self._client.execute(sql, params or [])
-        self._last_result = asyncio.run(coro)
+        self._last_result = _run(self._client.execute(sql, params or []))
         self.lastrowid = self._last_result.last_insert_rowid
         self.rowcount = self._last_result.rows_affected or 0
-        self._rows = self._last_result.rows if self._last_result.rows else []
+        cols = self._last_result.columns
+        if cols:
+            self._columns = [c if isinstance(c, str) else c.name for c in cols]
+        else:
+            self._columns = []
+        self._rows = [TursoRow(r, self._columns) for r in self._last_result.rows] if self._last_result.rows else []
         return self
 
     def fetchone(self):
-        """Retorna la primera fila como Row-like dict, o None."""
         if self._rows:
             return self._rows[0]
         return None
 
     def fetchall(self):
-        """Retorna todas las filas como lista de Row-like dicts."""
         return self._rows
 
     def __iter__(self):
@@ -47,9 +92,8 @@ class TursoCursor:
 class TursoConnection:
     """
     Imita sqlite3.Connection usando Turso/libsql por debajo.
-    - Cada execute() es una transacción auto-committed (HTTP).
-    - commit() y rollback() son no-ops (modo auto-commit).
-    - Para operaciones atómicas multi-statement, usar batch().
+    - Cada execute() es auto-commit (HTTP).
+    - commit() y rollback() son no-ops.
     """
 
     def __init__(self, url, auth_token):
@@ -58,64 +102,49 @@ class TursoConnection:
         self._async_client = None
 
     def _get_client(self):
-        """Crea o retorna el cliente async (lazy init)."""
         if self._async_client is None:
-            self._async_client = libsql_client.create_client(
-                url=self.url, auth_token=self.auth_token,
-            )
+            async def _create():
+                return libsql_client.create_client(
+                    url=self.url, auth_token=self.auth_token,
+                )
+            self._async_client = _run(_create())
         return self._async_client
 
     def cursor(self):
-        """Retorna un TursoCursor vinculado a esta conexión."""
         return TursoCursor(self._get_client())
 
     def execute(self, sql, params=None):
-        """Ejecuta SQL directamente. Retorna TursoCursor."""
         cur = self.cursor()
         cur.execute(sql, params)
         return cur
 
     def commit(self):
-        """No-op: cada execute() hace auto-commit."""
-        pass
+        pass  # auto-commit mode
 
     def rollback(self):
-        """No-op en modo auto-commit."""
         pass
 
     def close(self):
-        """Cierra el cliente async."""
         if self._async_client:
             try:
-                asyncio.run(self._async_client.close())
+                _run(self._async_client.close())
             except Exception:
                 pass
             self._async_client = None
 
     def batch(self, statements):
-        """
-        Ejecuta múltiples statements en una transacción atómica.
-        statements: lista de strings SQL o tuplas (sql, params).
-        """
         stmts = []
         for s in statements:
             if isinstance(s, tuple):
                 stmts.append(libsql_client.Statement(s[0], s[1]))
             else:
                 stmts.append(s)
-
-        asyncio.run(self._get_client().batch(stmts))
+        _run(self._get_client().batch(stmts))
 
     def read_sql(self, sql, params=None):
-        """
-        Reemplazo síncrono de pd.read_sql_query().
-        Ejecuta SQL y retorna un DataFrame.
-        """
         cur = self.cursor()
         cur.execute(sql, params)
         rows = cur.fetchall()
         if rows:
-            # Extraer nombres de columnas del último resultado
-            columns = [c.name for c in cur._last_result.columns]
-            return pd.DataFrame(rows, columns=columns)
+            return pd.DataFrame(rows, columns=cur._columns)
         return pd.DataFrame()
