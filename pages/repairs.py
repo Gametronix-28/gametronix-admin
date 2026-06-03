@@ -19,8 +19,8 @@ def render():
 
     parts = list_inventory("Repuestos")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "Nueva orden", "Órdenes", "Abonos / pagos",
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "Nueva orden", "Ordenes y pagos",
         "Entrega", "Pendientes", "Historial cliente",
     ])
 
@@ -29,12 +29,10 @@ def render():
     with tab2:
         _render_orders_list()
     with tab3:
-        _render_payments()
-    with tab4:
         _render_delivery()
-    with tab5:
+    with tab4:
         _render_pending()
-    with tab6:
+    with tab5:
         _render_client_history()
 
 
@@ -185,12 +183,11 @@ def _render_orders_list():
         current_status = row.get("status") or "Recibido"
         balance = float(row.get("balance_due") or 0)
         total = float(row.get("total") or 0)
-        technician = row.get("technician") or "-"
+        paid = float(row.get("amount_paid") or 0)
 
-        # Fila: info + acciones
-        c1, c2, c3, c4, c5, c6, c7 = st.columns([1.2, 1.5, 1.2, 1.2, 1.2, 1.5, 1.2])
+        # Fila principal: info + estado + acciones
+        c1, c2, c3, c4, c5, c6, c7 = st.columns([1, 1.4, 1, 1, 1.3, 1.8, 0.6])
 
-        # Info basica
         with c1:
             st.write(f"**{order}**")
         with c2:
@@ -198,7 +195,7 @@ def _render_orders_list():
         with c3:
             st.write(device)
         with c4:
-            st.write(f"{money(total, 'COP')}")
+            st.write(money(total, "COP"))
 
         # Estado editable
         with c5:
@@ -211,40 +208,63 @@ def _render_orders_list():
                 label_visibility="collapsed",
             )
 
-        # Pago / saldo
+        # Pago / abono inline
         with c6:
             if balance > 0:
-                st.write(f"Pend: {money(balance, 'COP')}")
-                pay_method = st.selectbox(
-                    "Pago",
-                    ["Efectivo", "Transf-Bcol", "Transf-Nequi", "Tarjeta", "Otro"],
-                    key=f"paymethod_{rid}",
-                    label_visibility="collapsed",
-                )
-                if st.button("💰 Pagar", key=f"paybtn_{rid}"):
-                    try:
-                        mark_repair_paid(rid, pay_method, st.session_state.user["username"])
-                        st.success(f"{order} marcada como PAGADA.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(str(e))
+                st.caption(f"Pend: {money(balance, 'COP')}")
+                ab1, ab2 = st.columns([1, 1])
+                with ab1:
+                    pay_method = st.selectbox(
+                        "Metodo",
+                        ["Efectivo", "Transf-Bcol", "Transf-Nequi", "Tarjeta", "Otro"],
+                        key=f"paymethod_{rid}",
+                        label_visibility="collapsed",
+                    )
+                with ab2:
+                    pay_amount = st.number_input(
+                        "Monto",
+                        min_value=0.0,
+                        max_value=balance,
+                        value=balance,
+                        step=1000.0,
+                        key=f"payamount_{rid}",
+                        label_visibility="collapsed",
+                    )
+                # Botones de pago
+                ab3, ab4 = st.columns([1, 1])
+                with ab3:
+                    if st.button("Abonar", key=f"abbtn_{rid}"):
+                        try:
+                            add_repair_payment(rid, pay_amount, pay_method, "Abono", st.session_state.user["username"])
+                            st.success(f"Abono {money(pay_amount, 'COP')} registrado.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(str(e))
+                with ab4:
+                    if st.button("Pagar todo", key=f"payallbtn_{rid}"):
+                        try:
+                            mark_repair_paid(rid, pay_method, st.session_state.user["username"])
+                            st.success(f"{order} PAGADA. Dinero en Caja Colombia.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(str(e))
             else:
-                st.write("✅ Pagado")
+                st.success("Pagado")
 
         # PDF
         with c7:
-            if st.button("📄 PDF", key=f"pdfbtn_{rid}"):
+            if st.button("PDF", key=f"pdfbtn_{rid}"):
                 try:
                     repair = get_repair(rid)
                     if repair:
                         stock_parts_df = list_repair_parts(300)
-                        external_parts_df = list_repair_external_parts(300)
-                        payments_df = list_repair_payments(300)
+                        ext_df = list_repair_external_parts(300)
+                        pay_df = list_repair_payments(300)
                         pdf_path = create_repair_order_pdf(
                             repair,
                             stock_parts_df.to_dict("records"),
-                            external_parts_df.to_dict("records"),
-                            payments_df.to_dict("records"),
+                            ext_df.to_dict("records"),
+                            pay_df.to_dict("records"),
                         )
                         with open(pdf_path, "rb") as f:
                             st.download_button(
@@ -257,7 +277,7 @@ def _render_orders_list():
                 except Exception as e:
                     st.error(str(e))
 
-        # Aplicar cambio de estado si se modifico
+        # Aplicar cambio de estado
         if new_status != current_status:
             try:
                 update_repair_status(rid, new_status)
@@ -267,6 +287,10 @@ def _render_orders_list():
                 st.error(str(e))
 
         st.divider()
+
+    # ── Historial de pagos ──────────────────────────────
+    st.subheader("Historial de pagos de taller")
+    st.dataframe(list_repair_payments(300), use_container_width=True, hide_index=True)
 
 
 # ── Tab 3: Abonos / pagos ───────────────────────────────
