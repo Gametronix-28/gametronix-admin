@@ -46,7 +46,47 @@ CURRENCY_SYMBOLS = {"COP": "COP", "USD": "USD"}
 DEFAULT_RATE = 4000.0
 
 # ── Roles del sistema ──────────────────────────────────────
-ROLES = ["admin", "caja", "inventario", "consulta"]
+ROLES = ["admin", "caja_colombia", "caja_usa", "inventario", "consulta", "personalizado"]
+
+# Permisos predefinidos por rol (menús que puede ver)
+ROLE_PERMISSIONS = {
+    "admin": [],  # vacío = acceso total
+    "caja_colombia": [
+        "Dashboard ganancias",
+        "Caja Colombia",
+        "Compra Colombia",
+        "Bodega Colombia",
+        "Venta Colombia",
+        "Gastos por caja",
+        "Transferencia con tasa",
+        "Importar / Exportar",
+    ],
+    "caja_usa": [
+        "Dashboard ganancias",
+        "Caja USA",
+        "Compra USA",
+        "Bodega USA",
+        "Envíos USA",
+        "Transferencia con tasa",
+        "Importar / Exportar",
+    ],
+    "inventario": [
+        "Dashboard ganancias",
+        "Bodega USA",
+        "Bodega Colombia",
+        "Bodega Repuestos",
+        "Importar / Exportar",
+    ],
+    "consulta": [
+        "Dashboard ganancias",
+        "Bodega USA",
+        "Bodega Colombia",
+        "Bodega Repuestos",
+        "Caja Colombia",
+        "Caja USA",
+        "Taller Reparaciones",
+    ],
+}
 
 # ── Turso (nube) ──────────────────────────────────────────
 # Para usar la DB en la nube, cambia USE_TURSO a True

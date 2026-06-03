@@ -30,6 +30,7 @@ TABLES = {
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'caja',
+            permissions TEXT,
             active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL
         )
@@ -284,6 +285,9 @@ TABLES = {
 # Solo se agregan si no existen. No modifican datos existentes.
 
 MIGRATABLE_COLUMNS = {
+    "users": {
+        "permissions": "TEXT",
+    },
     "usa_shipments": {
         "status": "TEXT NOT NULL DEFAULT 'Enviado'",
         "received_in_colombia": "INTEGER NOT NULL DEFAULT 0",
