@@ -26,35 +26,44 @@ def render():
     st.divider()
     st.subheader("Crear nuevo usuario")
 
+    # ── Selector de rol FUERA del form (para que reactive al instante) ─
+    if "new_user_role" not in st.session_state:
+        st.session_state.new_user_role = "admin"
+
+    role = st.selectbox(
+        "Rol",
+        ROLES,
+        key="new_user_role",
+        on_change=None,  # se actualiza solo
+    )
+
+    # Mostrar info del rol seleccionado
+    if role == "admin":
+        st.info("Administrador: acceso TOTAL a todos los modulos.")
+
+    elif role == "personalizado":
+        st.caption("Marca los modulos a los que tendra acceso:")
+
+    else:
+        preset = ROLE_PERMISSIONS.get(role, [])
+        st.info(f"Modulos permitidos ({len(preset)}): {', '.join(preset)}")
+
+    # ── Formulario de creacion ────────────────────────────
     with st.form("new_user"):
         c1, c2 = st.columns(2)
         username = c1.text_input("Nombre de usuario")
         password = c2.text_input("Contrasena", type="password")
 
-        role = st.selectbox("Rol", ROLES, index=0)
-
-        # Mostrar modulos permitidos segun el rol
-        if role == "admin":
-            st.info("Administrador: acceso TOTAL a todos los modulos.")
-            selected_perms = []
-
-        elif role == "personalizado":
-            st.caption("Selecciona los modulos a los que tendra acceso:")
+        # Checkboxes solo si es personalizado
+        selected_perms = []
+        if role == "personalizado":
             selected_perms = _render_module_checkboxes()
-            if not selected_perms:
-                st.warning("Selecciona al menos un modulo.")
-
-        else:
-            # Rol predefinido: mostrar modulos que tendra
-            preset = ROLE_PERMISSIONS.get(role, [])
-            st.info(f"Modulos permitidos ({len(preset)}): {', '.join(preset)}")
-            selected_perms = []
 
         if st.form_submit_button("Crear usuario"):
             if not username or not password:
                 st.error("Usuario y contrasena son obligatorios.")
             elif role == "personalizado" and not selected_perms:
-                st.error("Selecciona al menos un modulo para el rol personalizado.")
+                st.error("Selecciona al menos un modulo.")
             else:
                 perms_to_save = selected_perms if role == "personalizado" else None
                 add_user(username, password, role, perms_to_save)
