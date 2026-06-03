@@ -170,12 +170,50 @@ def _void_product(cur, record_id):
     cur.execute("UPDATE products SET active = 0 WHERE id = ?", (record_id,))
 
 
+def _void_payment(cur, payment_id):
+    """Anula un abono/pago individual de taller."""
+    payment = cur.execute(
+        "SELECT * FROM repair_payments WHERE id = ? AND active = 1", (payment_id,)
+    ).fetchone()
+    if not payment:
+        raise ValueError("Abono no encontrado o ya anulado.")
+
+    repair = cur.execute(
+        "SELECT * FROM repairs WHERE id = ? AND active = 1", (payment["repair_id"],)
+    ).fetchone()
+
+    amount = float(payment["amount"] or 0)
+
+    # Revertir en caja
+    if amount > 0:
+        cashbox_add(
+            cur, "Caja Colombia", -amount, "COP", "anulacion_abono",
+            "repair_payments", payment_id,
+            f"Anulacion abono #{payment_id} de {repair['order_code'] if repair else 'N/A'}", "admin",
+        )
+
+    # Actualizar saldos de la reparacion
+    if repair:
+        new_paid = float(repair["amount_paid"] or 0) - amount
+        new_balance = float(repair["total"] or 0) - new_paid
+        new_status = repair["status"]
+        if new_balance > 0 and repair["status"] == "Pagado":
+            new_status = "En proceso"
+        cur.execute(
+            "UPDATE repairs SET amount_paid = ?, balance_due = ?, status = ? WHERE id = ?",
+            (new_paid, new_balance, new_status, payment["repair_id"]),
+        )
+
+    cur.execute("UPDATE repair_payments SET active = 0 WHERE id = ?", (payment_id,))
+
+
 _VOID_STRATEGIES = {
     "factura": _void_invoice,
     "venta": _void_sale,
     "compra": _void_purchase,
     "envio_usa": _void_shipment,
     "reparacion": _void_repair,
+    "abono_reparacion": _void_payment,
     "transferencia": _void_transfer,
     "gasto": _void_expense,
     "producto": _void_product,
@@ -185,7 +223,7 @@ _VOID_STRATEGIES = {
 def void_record(record_type, record_id, reason, user):
     strategy = _VOID_STRATEGIES.get(record_type)
     if not strategy:
-        raise ValueError(f"Tipo de registro invÃ¡lido: {record_type}")
+        raise ValueError(f"Tipo de registro invalido: {record_type}")
     with get_db() as con:
         cur = con.cursor()
         strategy(cur, record_id)
@@ -193,6 +231,25 @@ def void_record(record_type, record_id, reason, user):
             "INSERT INTO voids(date, record_type, record_id, reason, user) VALUES (?, ?, ?, ?, ?)",
             (now(), record_type, record_id, reason, user),
         )
+
+
+def get_repair_payment_details(repair_id):
+    """Obtiene los abonos individuales y movimientos de caja de una reparacion."""
+    with get_db() as con:
+        payments = read_sql(con,
+            "SELECT rp.id, rp.date, rp.amount, rp.payment_method, rp.notes, rp.user, rp.active "
+            "FROM repair_payments rp WHERE rp.repair_id = ? ORDER BY rp.id DESC",
+            (repair_id,),
+        )
+        movements = read_sql(con,
+            "SELECT id, date, type, amount, currency, description, user, active "
+            "FROM cashbox_movements "
+            "WHERE reference_table IN ('repairs','repair_payments') "
+            "AND reference_id IN (SELECT id FROM repair_payments WHERE repair_id = ?) "
+            "ORDER BY id DESC",
+            (repair_id,),
+        )
+        return payments, movements
 
 
 def list_voids():

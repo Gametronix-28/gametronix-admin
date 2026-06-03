@@ -54,4 +54,4 @@ from db.transfer import calculate_transfer, register_transfer, list_transfers
 from db.dashboard import profit_dashboard, payment_method_summary
 
 # Admin
-from db.admin import void_record, list_voids, export_to_excel
+from db.admin import void_record, list_voids, export_to_excel, get_repair_payment_details
