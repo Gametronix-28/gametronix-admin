@@ -166,100 +166,107 @@ def _render_new_order(parts):
 def _render_orders_list():
     st.subheader("Ordenes de reparacion")
     repairs_df = list_repairs(300)
-    st.dataframe(repairs_df, use_container_width=True, hide_index=True)
 
     if repairs_df.empty:
+        st.info("No hay ordenes registradas.")
         return
 
-    st.divider()
+    # Encabezado de la tabla
+    st.caption(f"Total: {len(repairs_df)} ordenes")
 
-    # ── Modificar estado ──────────────────────────────
-    st.subheader("Modificar estado de reparacion")
-    with st.form("update_status_form"):
-        c1, c2 = st.columns(2)
-        repair_id_status = c1.number_input("ID de reparacion", min_value=1, step=1, key="status_id")
-        new_status = c2.selectbox(
-            "Nuevo estado",
-            ["Recibido", "En proceso", "Esperando repuesto", "Terminado", "Pagado", "Entregado"],
-            key="new_status",
-        )
-        if st.form_submit_button("Actualizar estado"):
+    # ── Tabla interactiva con acciones inline ─────────────
+    status_options = ["Recibido", "En proceso", "Esperando repuesto", "Terminado", "Pagado", "Entregado"]
+
+    for idx, row in repairs_df.iterrows():
+        rid = int(row["id"])
+        order = row.get("order_code", f"REP-{rid:05d}")
+        client = row.get("client") or "-"
+        device = row.get("device") or "-"
+        current_status = row.get("status") or "Recibido"
+        balance = float(row.get("balance_due") or 0)
+        total = float(row.get("total") or 0)
+        technician = row.get("technician") or "-"
+
+        # Fila: info + acciones
+        c1, c2, c3, c4, c5, c6, c7 = st.columns([1.2, 1.5, 1.2, 1.2, 1.2, 1.5, 1.2])
+
+        # Info basica
+        with c1:
+            st.write(f"**{order}**")
+        with c2:
+            st.write(client)
+        with c3:
+            st.write(device)
+        with c4:
+            st.write(f"{money(total, 'COP')}")
+
+        # Estado editable
+        with c5:
+            status_idx = status_options.index(current_status) if current_status in status_options else 0
+            new_status = st.selectbox(
+                "Estado",
+                status_options,
+                index=status_idx,
+                key=f"status_{rid}",
+                label_visibility="collapsed",
+            )
+
+        # Pago / saldo
+        with c6:
+            if balance > 0:
+                st.write(f"Pend: {money(balance, 'COP')}")
+                pay_method = st.selectbox(
+                    "Pago",
+                    ["Efectivo", "Transf-Bcol", "Transf-Nequi", "Tarjeta", "Otro"],
+                    key=f"paymethod_{rid}",
+                    label_visibility="collapsed",
+                )
+                if st.button("💰 Pagar", key=f"paybtn_{rid}"):
+                    try:
+                        mark_repair_paid(rid, pay_method, st.session_state.user["username"])
+                        st.success(f"{order} marcada como PAGADA.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(str(e))
+            else:
+                st.write("✅ Pagado")
+
+        # PDF
+        with c7:
+            if st.button("📄 PDF", key=f"pdfbtn_{rid}"):
+                try:
+                    repair = get_repair(rid)
+                    if repair:
+                        stock_parts_df = list_repair_parts(300)
+                        external_parts_df = list_repair_external_parts(300)
+                        payments_df = list_repair_payments(300)
+                        pdf_path = create_repair_order_pdf(
+                            repair,
+                            stock_parts_df.to_dict("records"),
+                            external_parts_df.to_dict("records"),
+                            payments_df.to_dict("records"),
+                        )
+                        with open(pdf_path, "rb") as f:
+                            st.download_button(
+                                f"Descargar {order}",
+                                data=f,
+                                file_name=f"Orden_{order}.pdf",
+                                mime="application/pdf",
+                                key=f"dl_{rid}",
+                            )
+                except Exception as e:
+                    st.error(str(e))
+
+        # Aplicar cambio de estado si se modifico
+        if new_status != current_status:
             try:
-                update_repair_status(int(repair_id_status), new_status)
-                st.success(f"Estado actualizado a '{new_status}'.")
+                update_repair_status(rid, new_status)
+                st.success(f"{order} → {new_status}")
                 st.rerun()
             except Exception as e:
                 st.error(str(e))
 
-    st.divider()
-
-    # ── Marcar como pagado ────────────────────────────
-    st.subheader("Marcar reparacion como PAGADA")
-    st.caption("Paga el saldo pendiente completo y envia el dinero a Caja Colombia.")
-
-    pending = repairs_df[repairs_df["balance_due"] > 0] if "balance_due" in repairs_df.columns else repairs_df
-
-    if pending.empty:
-        st.success("Todas las reparaciones estan pagadas.")
-    else:
-        with st.form("mark_paid_form"):
-            c1, c2 = st.columns(2)
-            repair_label = c1.selectbox(
-                "Reparacion con saldo pendiente",
-                pending.apply(
-                    lambda r: f"#{r['id']} - {r['order_code']} - {r['client']} - {r['device']} - Pendiente: {r['balance_due']}",
-                    axis=1,
-                ),
-                key="mark_paid_select",
-            )
-            repair_id_pay = int(repair_label.split(" - ")[0].replace("#", ""))
-            payment_method = c2.selectbox(
-                "Medio de pago",
-                ["Efectivo", "Transferencia - Bancolombia", "Transferencia - Nequi", "Tarjeta", "Otro"],
-                key="mark_paid_method",
-            )
-            if st.form_submit_button("Marcar como PAGADO (pagar saldo completo)"):
-                try:
-                    mark_repair_paid(
-                        repair_id_pay, payment_method,
-                        st.session_state.user["username"],
-                    )
-                    st.success("Reparacion marcada como PAGADA. El dinero se sumo a Caja Colombia.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(str(e))
-
-    st.divider()
-
-    # ── PDF ───────────────────────────────────────────
-    st.subheader("PDF de orden de reparacion")
-    repair_pdf_id = st.number_input(
-        "ID de reparacion para generar PDF", min_value=1, step=1, key="repair_pdf_id",
-    )
-    if st.button("Generar PDF orden de reparacion"):
-        try:
-            repair = get_repair(int(repair_pdf_id))
-            if not repair:
-                st.error("No encontre esa reparacion.")
-            else:
-                stock_parts_df = list_repair_parts(300)
-                external_parts_df = list_repair_external_parts(300)
-                payments_df = list_repair_payments(300)
-                pdf_file_path = create_repair_order_pdf(
-                    repair,
-                    stock_parts_df.to_dict("records"),
-                    external_parts_df.to_dict("records"),
-                    payments_df.to_dict("records"),
-                )
-                with open(pdf_file_path, "rb") as f:
-                    st.download_button(
-                        "Descargar PDF orden",
-                        data=f,
-                        file_name=f"Orden_{repair.get('order_code')}.pdf",
-                        mime="application/pdf",
-                    )
-        except Exception as e:
-            st.error(str(e))
+        st.divider()
 
 
 # ── Tab 3: Abonos / pagos ───────────────────────────────
