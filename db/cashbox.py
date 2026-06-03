@@ -43,3 +43,17 @@ def cashbox_add(cur, cashbox, amount, currency, type_, table, rid, desc, user):
         (now(), cashbox, type_, table, rid, amount, currency, desc, user),
     )
 
+
+def inject_capital(cashbox, amount, notes, user):
+    """
+    Inyecta capital directamente a una caja.
+    No tiene contrapartida de compra/venta — es plata que entra al negocio.
+    """
+    currency = "COP" if cashbox == "Caja Colombia" else "USD"
+    with get_db() as con:
+        cur = con.cursor()
+        cashbox_add(
+            cur, cashbox, amount, currency, "inyeccion_capital",
+            "cashboxes", 0, f"Inyeccion de capital: {notes}", user,
+        )
+

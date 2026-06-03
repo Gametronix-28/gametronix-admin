@@ -6,7 +6,7 @@ App Streamlit para gestión de inventario, ventas y reparaciones.
 import streamlit as st
 from config import APP_CONFIG, CSS_STYLES
 from db.schema import initialize_database
-from components.layout import render_sidebar
+from components.layout import render_topbar
 from pages import MENU_OPTIONS, render_page
 from pages.login import render_login
 
@@ -27,7 +27,7 @@ if not st.session_state.user:
     render_login()
     st.stop()
 
-# ── Sidebar + navegación ───────────────────────────────────
+# ── Barra superior + menú horizontal ───────────────────────
 user = st.session_state.user
 
 
@@ -36,8 +36,10 @@ def on_logout():
     st.session_state.page = "Dashboard ganancias"
 
 
-selected_page = render_sidebar(user, MENU_OPTIONS, on_logout)
-st.session_state.page = selected_page
+selected_page = render_topbar(user, MENU_OPTIONS, on_logout)
+if selected_page is not None:
+    st.session_state.page = selected_page
+    st.rerun()
 
 # ── Renderizar página actual ───────────────────────────────
 render_page()

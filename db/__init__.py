@@ -12,7 +12,7 @@ from db.schema import initialize_database
 from db.auth import authenticate, list_users, add_user
 
 # Cashbox
-from db.cashbox import get_cashbox_balance, list_cashboxes, list_cashbox_movements, cashbox_add
+from db.cashbox import get_cashbox_balance, list_cashboxes, list_cashbox_movements, cashbox_add, inject_capital
 
 # Product
 from db.product import add_or_update_product, list_inventory
