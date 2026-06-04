@@ -26,12 +26,18 @@ def get_allowed_menu(user):
 st.set_page_config(**APP_CONFIG)
 st.markdown(CSS_STYLES, unsafe_allow_html=True)
 
-# ── Inicializar base de datos ──────────────────────────────
-initialize_database()
+# ── Inicializar base de datos (silencioso) ─────────────────
+try:
+    initialize_database()
+except Exception:
+    pass
 
-# ── Backup diario ──────────────────────────────────────────
-from utils.backup import run_backup
-run_backup()
+# ── Backup diario (silencioso) ─────────────────────────────
+try:
+    from utils.backup import run_backup
+    run_backup()
+except Exception:
+    pass
 
 # ── Autenticacion ──────────────────────────────────────────
 if "user" not in st.session_state:
@@ -42,6 +48,16 @@ if "page" not in st.session_state:
 if not st.session_state.user:
     render_login()
     st.stop()
+
+# ── PWA manifest (solo cuando hay sesion) ──────────────────
+st.markdown("""
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#111827">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="GAMETRONIX">
+""", unsafe_allow_html=True)
 
 # ── Barra superior + menu horizontal filtrado ──────────────
 user = st.session_state.user
