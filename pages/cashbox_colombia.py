@@ -32,4 +32,67 @@ def render():
         c3.metric("Neto del periodo", money(ingresos - egresos, "COP"))
         st.dataframe(filtered, use_container_width=True, hide_index=True)
     else:
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(filtered, use_container_width=True, hide_index=True)
+
+    # ── Conciliacion ─────────────────────────────────────
+    st.divider()
+    with st.expander("🔍 Conciliar caja - Ver de donde viene el saldo", expanded=True):
+        st.markdown("""
+        ### Paso a paso para conciliar:
+        1. **Saldo inicial**: dinero que ya estaba en caja antes de empezar a usar el sistema
+        2. **+ Ventas**: facturas registradas en Venta Colombia
+        3. **+ Reparaciones**: abonos y pagos de taller
+        4. **+ Capital inyectado**: dinero agregado manualmente
+        5. **- Compras**: compras de productos en Colombia
+        6. **- Gastos**: gastos registrados
+        7. **-/+ Transferencias**: dinero movido entre cajas
+        8. **= Saldo actual**: debe coincidir con lo que hay en caja fisicamente
+        """)
+
+        # Desglose por tipo de movimiento
+        if not df.empty:
+            df["amount_f"] = df["amount"].astype(float)
+            tipos = {
+                "factura_venta": "Ventas (facturas)",
+                "abono_reparacion": "Reparaciones (abonos)",
+                "pago_reparacion": "Reparaciones (pagos)",
+                "inyeccion_capital": "Capital inyectado",
+                "compra": "Compras",
+                "gasto": "Gastos",
+                "transferencia_entrada": "Transferencias (entrada)",
+                "transferencia_salida": "Transferencias (salida)",
+                "anulacion_factura": "Anulaciones",
+                "anulacion_venta": "Anulaciones venta",
+                "anulacion_compra": "Anulaciones compra",
+                "anulacion_reparacion": "Anulaciones reparacion",
+                "anulacion_abono": "Anulaciones abono",
+                "anulacion_gasto": "Anulaciones gasto",
+                "anulacion_transferencia": "Anulaciones transferencia",
+            }
+            df["tipo_legible"] = df["type"].map(tipos).fillna(df["type"])
+
+            # Agrupar por tipo
+            summary = df.groupby("tipo_legible")["amount_f"].sum().reset_index()
+            summary.columns = ["Tipo de movimiento", "Total"]
+            summary = summary.sort_values("Total", ascending=False)
+
+            st.write("**Desglose por tipo de movimiento:**")
+            for _, row in summary.iterrows():
+                tipo = row["Tipo de movimiento"]
+                total = row["Total"]
+                color = "green" if total > 0 else "red"
+                signo = "+" if total > 0 else ""
+                st.write(f"{signo}{money(total, 'COP')} → {tipo}")
+
+            # Total
+            gran_total = summary["Total"].sum()
+            st.metric("Saldo total segun movimientos", money(gran_total, "COP"))
+            st.metric("Saldo actual en caja", money(get_cashbox_balance("Caja Colombia"), "COP"))
+
+            if abs(gran_total - get_cashbox_balance("Caja Colombia")) < 1:
+                st.success("✅ La caja cuadra perfectamente.")
+            else:
+                diff = get_cashbox_balance("Caja Colombia") - gran_total
+                st.warning(f"⚠️ Diferencia: {money(diff, 'COP')}. Revisa los movimientos.")
+        else:
+            st.dataframe(df, use_container_width=True, hide_index=True)
