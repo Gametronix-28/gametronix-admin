@@ -196,7 +196,9 @@ def create_invoice_pdf(invoice, items, output_dir="facturas_pdf"):
 
 def create_repair_order_pdf(repair, stock_parts, external_parts, payments, output_dir="ordenes_reparacion_pdf"):
     """
-    Crea un PDF de orden de reparación con datos del equipo, repuestos y pagos.
+    Crea un PDF de orden de servicio para EL CLIENTE.
+    NO muestra costos internos (ganancia, costo de repuestos).
+    Solo muestra lo que el cliente necesita: equipo, repuestos usados y valores a pagar.
     """
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -211,71 +213,133 @@ def create_repair_order_pdf(repair, stock_parts, external_parts, payments, outpu
     )
 
     styles = getSampleStyleSheet()
-    title = ParagraphStyle(
-        "TitleGT", parent=styles["Title"], fontSize=20,
-        textColor=colors.HexColor("#111827"), alignment=1,
+
+    # Estilos
+    title_style = ParagraphStyle(
+        "TitleGT", parent=styles["Title"], fontSize=22,
+        textColor=colors.HexColor("#111827"), alignment=1, spaceAfter=2,
+    )
+    subtitle_style = ParagraphStyle(
+        "SubGT", parent=styles["Normal"], fontSize=10,
+        textColor=colors.HexColor("#6B7280"), alignment=1, spaceAfter=10,
+    )
+    section_style = ParagraphStyle(
+        "SectionGT", parent=styles["Heading2"], fontSize=11, fontName="Helvetica-Bold",
+        textColor=colors.HexColor("#111827"), spaceBefore=10, spaceAfter=4,
     )
     normal = ParagraphStyle(
-        "NormalGT", parent=styles["Normal"], fontSize=9, leading=12,
+        "NormalGT", parent=styles["Normal"], fontSize=9, leading=13,
+        textColor=colors.HexColor("#1F2937"),
+    )
+    small = ParagraphStyle(
+        "SmallGT", parent=styles["Normal"], fontSize=8, leading=10,
+        textColor=colors.HexColor("#6B7280"),
     )
 
-    story = [
-        Paragraph("GAMETRONIX", title),
-        Paragraph("Orden de reparación", normal),
-        Spacer(1, 8),
-    ]
+    story = []
 
-    # Datos principales
-    data = [
-        ["Orden", _safe(order_code), "Fecha", _safe(repair.get("date"))],
-        ["Cliente", _safe(repair.get("client")), "Teléfono", _safe(repair.get("phone"))],
-        ["Equipo", _safe(repair.get("device")), "Serial", _safe(repair.get("serial"))],
-        ["Técnico", _safe(repair.get("technician")), "Estado", _safe(repair.get("status"))],
-        ["Garantía", f"{_safe(repair.get('warranty_days'))} días", "Saldo", _money(repair.get("balance_due"))],
+    # ── Encabezado ─────────────────────────────────────
+    story.append(Paragraph("GAMETRONIX", title_style))
+    story.append(Paragraph("Orden de Servicio Tecnico", subtitle_style))
+
+    # Datos del cliente y equipo
+    info_data = [
+        ["Orden:", _safe(order_code), "Fecha:", _safe(repair.get("date"))],
+        ["Cliente:", _safe(repair.get("client")), "Telefono:", _safe(repair.get("phone"))],
+        ["Equipo:", _safe(repair.get("device")), "Serial:", _safe(repair.get("serial"))],
+        ["Tecnico:", _safe(repair.get("technician")), "Garantia:", f"{_safe(repair.get('warranty_days'))} dias"],
     ]
-    table = Table(data, colWidths=[28 * mm, 60 * mm, 28 * mm, 60 * mm])
-    table.setStyle(TableStyle([
+    info_table = Table(info_data, colWidths=[25 * mm, 55 * mm, 25 * mm, 55 * mm])
+    info_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F9FAFB")),
         ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#D1D5DB")),
         ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#E5E7EB")),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
-    story.append(table)
-    story.append(Spacer(1, 8))
+    story.append(info_table)
 
-    # Campos descriptivos
-    for label, key in [
+    # ── Datos del servicio ─────────────────────────────
+    service_items = [
         ("Accesorios recibidos", "accessories"),
-        ("Estado recibido", "received_condition"),
-        ("Falla reportada", "issue"),
-        ("Diagnóstico", "diagnostic"),
-        ("Solución", "repair_solution"),
-        ("Notas", "notes"),
-    ]:
-        value = _safe(repair.get(key))
-        if value:
-            story.append(Paragraph(f"<b>{label}:</b> {value}", normal))
-            story.append(Spacer(1, 4))
-
-    # Costos y pagos
-    story.append(Spacer(1, 6))
-    story.append(Paragraph("<b>Costos y pagos</b>", normal))
-    totals = [
-        ["Valor reparación", _money(repair.get("total"))],
-        ["Costo repuestos bodega", _money(repair.get("parts_cost"))],
-        ["Costo repuestos externos", _money(repair.get("external_parts_cost"))],
-        ["Ganancia", _money(repair.get("profit"))],
-        ["Abonado", _money(repair.get("amount_paid"))],
-        ["Saldo pendiente", _money(repair.get("balance_due"))],
+        ("Estado en que se recibe", "received_condition"),
+        ("Falla reportada por el cliente", "issue"),
+        ("Diagnostico tecnico", "diagnostic"),
+        ("Solucion / trabajo realizado", "repair_solution"),
     ]
-    totals_table = Table(totals, colWidths=[60 * mm, 60 * mm])
-    totals_table.setStyle(TableStyle([
+    has_service_data = any(_safe(repair.get(k)) for _, k in service_items)
+    if has_service_data:
+        story.append(Paragraph("DATOS DEL SERVICIO", section_style))
+        for label, key in service_items:
+            value = _safe(repair.get(key))
+            if value:
+                story.append(Paragraph(f"<b>{label}:</b> {value}", normal))
+
+    # ── Repuestos utilizados (solo nombres, sin costos) ─
+    parts_used = []
+    # Repuestos de bodega
+    if stock_parts:
+        for p in stock_parts:
+            name = _safe(p.get("part_name") or p.get("product_name"))
+            qty = p.get("qty", 1)
+            if name:
+                parts_used.append(f"• {name} ({int(qty)} ud)")
+    # Repuestos externos
+    if external_parts:
+        for p in external_parts:
+            name = _safe(p.get("part_name"))
+            qty = p.get("qty", 1)
+            if name:
+                parts_used.append(f"• {name} ({int(qty)} ud)")
+
+    if parts_used:
+        story.append(Paragraph("REPUESTOS UTILIZADOS", section_style))
+        for part in parts_used:
+            story.append(Paragraph(part, normal))
+
+    # ── Notas internas (si el cliente debe verlas) ──────
+    notes = _safe(repair.get("notes"))
+    if notes:
+        story.append(Paragraph("NOTAS", section_style))
+        story.append(Paragraph(notes, normal))
+
+    # ── Valor del servicio (solo info del cliente) ─────
+    story.append(Paragraph("VALOR DEL SERVICIO", section_style))
+    total = float(repair.get("total") or 0)
+    paid = float(repair.get("amount_paid") or 0)
+    balance = float(repair.get("balance_due") or 0)
+
+    value_data = [
+        ["Total a pagar:", _money(total)],
+        ["Abonado:", _money(paid)],
+        ["Saldo pendiente:", _money(balance)],
+    ]
+    value_table = Table(value_data, colWidths=[55 * mm, 55 * mm])
+    value_table.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#111827")),
         ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
-        ("BACKGROUND", (0, 5), (-1, 5), colors.HexColor("#111827")),
-        ("TEXTCOLOR", (0, 5), (-1, 5), colors.white),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("BACKGROUND", (0, 2), (-1, 2), colors.HexColor("#111827")),
+        ("TEXTCOLOR", (0, 2), (-1, 2), colors.white),
+        ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
-    story.append(totals_table)
+    story.append(value_table)
+
+    # ── Pie ────────────────────────────────────────────
+    story.append(Spacer(1, 14))
+    story.append(Paragraph(
+        "Gracias por confiar en GAMETRONIX. Conserva esta orden para garantia y soporte.",
+        subtitle_style,
+    ))
+    story.append(Paragraph(
+        f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        small,
+    ))
 
     doc.build(story)
     return str(pdf_path)
