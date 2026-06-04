@@ -40,7 +40,64 @@ def render():
 
     with st.expander("💳 Saldos por medio de pago"):
         payment_df = payment_method_summary(start, end)
-        st.dataframe(payment_df, use_container_width=True, hide_index=True)
+        _render_payment_cards(payment_df)
+
+
+def _render_payment_cards(df):
+    """Muestra los saldos por medio de pago como tarjetas modernas."""
+    icons = {
+        "Efectivo": "💵",
+        "Bancolombia": "🏦",
+        "Nequi": "📱",
+        "Tarjeta": "💳",
+        "Otro": "🪙",
+        "Pendiente": "⏳",
+        "Sin especificar": "❓",
+    }
+    # CSS para tarjetas
+    st.markdown("""
+    <style>
+    .payment-card {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border-radius: 14px;
+        padding: 18px 22px;
+        margin: 6px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-left: 4px solid #3b82f6;
+    }
+    .payment-card .icon {
+        font-size: 28px;
+        margin-right: 16px;
+    }
+    .payment-card .name {
+        color: #e2e8f0;
+        font-size: 15px;
+        font-weight: 600;
+    }
+    .payment-card .amount {
+        color: #60a5fa;
+        font-size: 18px;
+        font-weight: 700;
+        text-align: right;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    for _, row in df.iterrows():
+        medio = str(row.get("medio_pago", ""))
+        saldo = float(row.get("saldo", 0))
+        icon = icons.get(medio, "💰")
+        st.markdown(f"""
+        <div class="payment-card">
+            <div style="display:flex;align-items:center;">
+                <span class="icon">{icon}</span>
+                <span class="name">{medio}</span>
+            </div>
+            <span class="amount">{money(saldo, 'COP')}</span>
+        </div>
+        """, unsafe_allow_html=True)
 
     # ── Reparaciones pendientes ─────────────────────────
     pending = list_pending_repairs(20)
