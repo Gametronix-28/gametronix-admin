@@ -38,9 +38,10 @@ def render():
     sc1.metric("Saldo Caja Colombia", money(get_cashbox_balance("Caja Colombia"), "COP"))
     sc2.metric("Saldo Caja USA", money(get_cashbox_balance("Caja USA"), "USD"))
 
-    with st.expander("💳 Saldos por medio de pago"):
-        payment_df = payment_method_summary(start, end)
-        _render_payment_cards(payment_df)
+    st.divider()
+    st.subheader("💳 Saldos por medio de pago")
+    payment_df = payment_method_summary(start, end)
+    _render_payment_cards(payment_df)
 
 
 def _render_payment_cards(df):
@@ -100,42 +101,43 @@ def _render_payment_cards(df):
         """, unsafe_allow_html=True)
 
     # ── Reparaciones pendientes ─────────────────────────
+    st.divider()
+    st.subheader("🔧 Reparaciones pendientes")
     pending = list_pending_repairs(20)
-    pending_count = len(pending) if not pending.empty else 0
-    with st.expander(f"🔧 Reparaciones pendientes ({pending_count})"):
-        if pending.empty:
-            st.success("No hay reparaciones con saldo pendiente.")
-        else:
-            st.dataframe(pending, use_container_width=True, hide_index=True)
+    if pending.empty:
+        st.success("No hay reparaciones con saldo pendiente.")
+    else:
+        st.dataframe(pending, use_container_width=True, hide_index=True)
 
     # ── Inyectar capital ─────────────────────────────────
-    with st.expander("💵 Inyectar capital"):
-        st.caption("Agrega dinero directamente a una caja.")
-        saldo_col = get_cashbox_balance("Caja Colombia")
-        saldo_usa = get_cashbox_balance("Caja USA")
+    st.divider()
+    st.subheader("💵 Inyectar capital")
+    st.caption("Agrega dinero directamente a una caja.")
+    saldo_col = get_cashbox_balance("Caja Colombia")
+    saldo_usa = get_cashbox_balance("Caja USA")
 
-        sc1, sc2 = st.columns(2)
-        sc1.metric("Saldo Caja Colombia", money(saldo_col, "COP"))
-        sc2.metric("Saldo Caja USA", money(saldo_usa, "USD"))
+    sc1, sc2 = st.columns(2)
+    sc1.metric("Saldo Caja Colombia", money(saldo_col, "COP"))
+    sc2.metric("Saldo Caja USA", money(saldo_usa, "USD"))
 
-        with st.form("inject_capital"):
-            c1, c2, c3 = st.columns(3)
-            cashbox = c1.selectbox("Caja destino", ["Caja Colombia", "Caja USA"])
-            currency = "COP" if cashbox == "Caja Colombia" else "USD"
-            step_val = 10000.0 if currency == "COP" else 10.0
-            amount = c2.number_input(f"Monto ({currency})", min_value=0.0, step=step_val)
-            payment_method = c3.selectbox(
-                "Medio de pago / banco",
-                ["Efectivo", "Transferencia - Bancolombia", "Transferencia - Nequi", "Tarjeta", "Otro"],
-            )
-            notes = st.text_input("Concepto", placeholder="Ej: Capital inicial, inversion...")
-            if st.form_submit_button("💵 Inyectar capital"):
-                if amount <= 0:
-                    st.error("El monto debe ser mayor a cero.")
-                else:
-                    inject_capital(cashbox, amount, payment_method, notes, st.session_state.user["username"])
-                    st.success(f"Capital inyectado: {money(amount, currency)} a {cashbox} via {payment_method}.")
-                    st.rerun()
+    with st.form("inject_capital"):
+        c1, c2, c3 = st.columns(3)
+        cashbox = c1.selectbox("Caja destino", ["Caja Colombia", "Caja USA"])
+        currency = "COP" if cashbox == "Caja Colombia" else "USD"
+        step_val = 10000.0 if currency == "COP" else 10.0
+        amount = c2.number_input(f"Monto ({currency})", min_value=0.0, step=step_val)
+        payment_method = c3.selectbox(
+            "Medio de pago / banco",
+            ["Efectivo", "Transferencia - Bancolombia", "Transferencia - Nequi", "Tarjeta", "Otro"],
+        )
+        notes = st.text_input("Concepto", placeholder="Ej: Capital inicial, inversion...")
+        if st.form_submit_button("💵 Inyectar capital"):
+            if amount <= 0:
+                st.error("El monto debe ser mayor a cero.")
+            else:
+                inject_capital(cashbox, amount, payment_method, notes, st.session_state.user["username"])
+                st.success(f"Capital inyectado: {money(amount, currency)} a {cashbox} via {payment_method}.")
+                st.rerun()
 
 
 def _render_alerts():
