@@ -137,9 +137,11 @@ def _render_payment_cards(df):
     </style>
     """, unsafe_allow_html=True)
 
+    total_payments = 0.0
     for _, row in df.iterrows():
         medio = str(row.get("medio_pago", ""))
         saldo = float(row.get("saldo", 0))
+        total_payments += saldo
         icon = icons.get(medio, "💰")
         st.markdown(f"""
         <div class="payment-card">
@@ -150,6 +152,22 @@ def _render_payment_cards(df):
             <span class="amount">{money(saldo, 'COP')}</span>
         </div>
         """, unsafe_allow_html=True)
+
+    # Total y comparacion con caja
+    saldo_caja = get_cashbox_balance("Caja Colombia")
+    st.markdown(f"""
+    <div class="payment-card" style="border-left: 4px solid #10b981;">
+        <div style="display:flex;align-items:center;">
+            <span class="icon">📊</span>
+            <span class="name">Total medios de pago</span>
+        </div>
+        <span class="amount" style="color:#10b981;">{money(total_payments, 'COP')}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if abs(total_payments - saldo_caja) > 1:
+        diff = saldo_caja - total_payments
+        st.warning(f"⚠️ Hay {money(diff, 'COP')} sin medio de pago asignado. Ve a Dashboard → Inyectar capital para registrarlo.")
 
 
 def _render_alerts():

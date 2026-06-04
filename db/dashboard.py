@@ -110,26 +110,90 @@ def profit_dashboard(start, end):
 
 
 def payment_method_summary(start, end):
+    """
+    Resumen de TODO el dinero en caja por medio de pago.
+    Incluye: facturas, abonos de taller, capital inyectado y transferencias.
+    El total debe coincidir con el saldo de Caja Colombia.
+    """
     with get_db() as con:
         frames = []
-        for sql in [
-            "SELECT COALESCE(payment_method, 'Sin especificar') AS medio_pago, "
-            "COALESCE(SUM(total), 0) AS saldo FROM invoices "
-            "WHERE active = 1 AND date(date) BETWEEN date(?) AND date(?) "
-            "GROUP BY COALESCE(payment_method, 'Sin especificar')",
-            "SELECT COALESCE(payment_method, 'Sin especificar') AS medio_pago, "
-            "COALESCE(SUM(total), 0) AS saldo FROM sales "
-            "WHERE active = 1 AND date(date) BETWEEN date(?) AND date(?) "
-            "GROUP BY COALESCE(payment_method, 'Sin especificar')",
-            "SELECT COALESCE(payment_method, 'Sin especificar') AS medio_pago, "
-            "COALESCE(SUM(amount), 0) AS saldo FROM repair_payments "
-            "WHERE active = 1 AND date(date) BETWEEN date(?) AND date(?) "
-            "GROUP BY COALESCE(payment_method, 'Sin especificar')",
-        ]:
-            try:
-                frames.append(read_sql(con, sql, (start, end)))
-            except Exception:
-                pass
+
+        # 1. Facturas
+        try:
+            frames.append(read_sql(con,
+                "SELECT COALESCE(payment_method, 'Sin especificar') AS medio_pago, "
+                "COALESCE(SUM(total), 0) AS saldo FROM invoices "
+                "WHERE active = 1 AND date(date) BETWEEN date(?) AND date(?) "
+                "GROUP BY COALESCE(payment_method, 'Sin especificar')",
+                (start, end),
+            ))
+        except Exception:
+            pass
+
+        # 2. Ventas legacy
+        try:
+            frames.append(read_sql(con,
+                "SELECT COALESCE(payment_method, 'Sin especificar') AS medio_pago, "
+                "COALESCE(SUM(total), 0) AS saldo FROM sales "
+                "WHERE active = 1 AND date(date) BETWEEN date(?) AND date(?) "
+                "GROUP BY COALESCE(payment_method, 'Sin especificar')",
+                (start, end),
+            ))
+        except Exception:
+            pass
+
+        # 3. Abonos de taller
+        try:
+            frames.append(read_sql(con,
+                "SELECT COALESCE(payment_method, 'Sin especificar') AS medio_pago, "
+                "COALESCE(SUM(amount), 0) AS saldo FROM repair_payments "
+                "WHERE active = 1 AND date(date) BETWEEN date(?) AND date(?) "
+                "GROUP BY COALESCE(payment_method, 'Sin especificar')",
+                (start, end),
+            ))
+        except Exception:
+            pass
+
+        # 4. Capital inyectado (parseado del description)
+        try:
+            caps = read_sql(con,
+                "SELECT description, amount FROM cashbox_movements "
+                "WHERE active = 1 AND type = 'inyeccion_capital' AND cashbox = 'Caja Colombia' "
+                "AND date(date) BETWEEN date(?) AND date(?)",
+                (start, end),
+            )
+            if not caps.empty:
+                rows = []
+                for _, r in caps.iterrows():
+                    desc = str(r.get("description", ""))
+                    amount = float(r.get("amount", 0))
+                    # Extraer metodo de pago: "Inyeccion capital [Efectivo]: ..."
+                    metodo = "Sin especificar"
+                    if "[" in desc and "]" in desc:
+                        metodo = desc.split("[")[1].split("]")[0]
+                    rows.append({"medio_pago": metodo, "saldo": amount})
+                if rows:
+                    frames.append(pd.DataFrame(rows))
+        except Exception:
+            pass
+
+        # 5. Transferencias recibidas en Caja Colombia
+        try:
+            transfers = read_sql(con,
+                "SELECT description, amount FROM cashbox_movements "
+                "WHERE active = 1 AND type = 'transferencia_entrada' AND cashbox = 'Caja Colombia' "
+                "AND date(date) BETWEEN date(?) AND date(?)",
+                (start, end),
+            )
+            if not transfers.empty:
+                rows = []
+                for _, r in transfers.iterrows():
+                    amount = float(r.get("amount", 0))
+                    rows.append({"medio_pago": "Transferencia", "saldo": amount})
+                if rows:
+                    frames.append(pd.DataFrame(rows))
+        except Exception:
+            pass
 
     if not frames:
         return pd.DataFrame({
@@ -150,11 +214,13 @@ def payment_method_summary(start, end):
             return "Bancolombia"
         if "Nequi" in value:
             return "Nequi"
+        if "Transferencia" in value:
+            return "Transferencia"
         return value
 
     df["medio_pago"] = df["medio_pago"].apply(normalize_payment)
     result = df.groupby("medio_pago", as_index=False)["saldo"].sum()
-    order = ["Efectivo", "Bancolombia", "Nequi", "Tarjeta", "Otro", "Pendiente", "Sin especificar"]
+    order = ["Efectivo", "Bancolombia", "Nequi", "Transferencia", "Tarjeta", "Otro", "Pendiente", "Sin especificar"]
     result["orden"] = result["medio_pago"].apply(lambda x: order.index(x) if x in order else 99)
     result = result.sort_values(["orden", "medio_pago"]).drop(columns=["orden"])
     return result
