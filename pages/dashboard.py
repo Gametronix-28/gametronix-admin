@@ -38,17 +38,18 @@ def render():
     sc1.metric("Saldo Caja Colombia", money(get_cashbox_balance("Caja Colombia"), "COP"))
     sc2.metric("Saldo Caja USA", money(get_cashbox_balance("Caja USA"), "USD"))
 
-    st.subheader("Saldos por medio de pago")
-    payment_df = payment_method_summary(start, end)
-    st.dataframe(payment_df, use_container_width=True, hide_index=True)
+    with st.expander("💳 Saldos por medio de pago"):
+        payment_df = payment_method_summary(start, end)
+        st.dataframe(payment_df, use_container_width=True, hide_index=True)
 
     # ── Reparaciones pendientes ─────────────────────────
-    st.subheader("Reparaciones pendientes")
     pending = list_pending_repairs(20)
-    if pending.empty:
-        st.success("No hay reparaciones con saldo pendiente.")
-    else:
-        st.dataframe(pending, use_container_width=True, hide_index=True)
+    pending_count = len(pending) if not pending.empty else 0
+    with st.expander(f"🔧 Reparaciones pendientes ({pending_count})"):
+        if pending.empty:
+            st.success("No hay reparaciones con saldo pendiente.")
+        else:
+            st.dataframe(pending, use_container_width=True, hide_index=True)
 
     # ── Inyectar capital ─────────────────────────────────
     with st.expander("💵 Inyectar capital"):
