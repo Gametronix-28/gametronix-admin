@@ -54,3 +54,108 @@ def render():
             st.rerun()
 
     st.dataframe(list_purchases("Colombia"), use_container_width=True, hide_index=True)
+
+    # ── Ensamblar producto ──────────────────────────────
+    st.divider()
+    st.subheader("🔧 Ensamblar producto")
+    st.caption("Combina partes de bodega + compras externas en un solo producto para la venta. Las partes se descuentan del inventario y el costo se suma al producto final.")
+
+    repuestos = list_inventory("Repuestos")
+    bodega_col = list_inventory("Colombia")
+
+    with st.form("assemble_product"):
+        # Producto final
+        st.markdown("**Producto final**")
+        auto_sku = generate_sku("Colombia")
+        c1, c2 = st.columns(2)
+        final_name = c1.text_input("Nombre del producto armado", placeholder="Ej: Xbox 360 Completa")
+        final_sku = c2.text_input("SKU producto final", value=auto_sku, key="assemble_sku")
+
+        # Partes desde bodega
+        st.markdown("**Partes desde bodega (se descuentan del stock)**")
+        used_parts = []
+        # De Repuestos
+        if not repuestos.empty:
+            st.caption("Desde Bodega Repuestos:")
+            for i in range(1, 6):
+                pc1, pc2 = st.columns([3, 1])
+                label = pc1.selectbox(
+                    f"Parte {i}",
+                    ["No usar"] + list(repuestos.apply(
+                        lambda r: f"{r['id']} - {r['sku']} - {r['name']} - Stock {r['stock']} - Costo {r['cost']}",
+                        axis=1,
+                    )),
+                    key=f"assemble_part_{i}",
+                )
+                qty = pc2.number_input(f"Cant {i}", min_value=0, step=1, key=f"assemble_qty_{i}")
+                if label != "No usar" and qty > 0:
+                    used_parts.append((int(label.split(" - ")[0]), int(qty)))
+
+        # De Bodega Colombia
+        if not bodega_col.empty:
+            st.caption("Desde Bodega Colombia:")
+            for i in range(1, 4):
+                pc1, pc2 = st.columns([3, 1])
+                label = pc1.selectbox(
+                    f"Producto Colombia {i}",
+                    ["No usar"] + list(bodega_col.apply(
+                        lambda r: f"{r['id']} - {r['sku']} - {r['name']} - Stock {r['stock']} - Costo {r['cost']}",
+                        axis=1,
+                    )),
+                    key=f"assemble_col_{i}",
+                )
+                qty = pc2.number_input(f"Cant {i}", min_value=0, step=1, key=f"assemble_col_qty_{i}")
+                if label != "No usar" and qty > 0:
+                    used_parts.append((int(label.split(" - ")[0]), int(qty)))
+
+        # Compras externas
+        st.markdown("**Partes compradas por fuera (se suman al costo)**")
+        external_parts = []
+        for i in range(1, 4):
+            with st.expander(f"Compra externa {i}", expanded=(i == 1)):
+                ec1, ec2 = st.columns(2)
+                part_name = ec1.text_input(f"Nombre parte externa {i}", key=f"assemble_ext_name_{i}")
+                ext_cost = ec2.number_input(f"Costo externo COP {i}", min_value=0.0, step=1000.0, key=f"assemble_ext_cost_{i}")
+                if part_name.strip() and ext_cost > 0:
+                    external_parts.append({"part_name": part_name.strip(), "unit_cost": float(ext_cost)})
+
+        # Vista previa
+        stock_cost = 0.0
+        all_inventories = list_inventory()
+        for pid, qty in used_parts:
+            row = all_inventories[all_inventories["id"] == pid]
+            if not row.empty:
+                stock_cost += float(row.iloc[0]["cost"] or 0) * qty
+        ext_cost = sum(p["unit_cost"] for p in external_parts)
+        total_cost = stock_cost + ext_cost
+
+        p1, p2, p3 = st.columns(3)
+        p1.metric("Costo partes bodega", money(stock_cost, "COP"))
+        p2.metric("Costo partes externas", money(ext_cost, "COP"))
+        p3.metric("Costo total producto", money(total_cost, "COP"))
+
+        if st.form_submit_button("🔧 Ensamblar producto"):
+            if not final_name.strip():
+                st.error("El nombre del producto es obligatorio.")
+            else:
+                try:
+                    # 1. Descontar partes de bodega
+                    from db.connection import get_db
+                    with get_db() as con:
+                        cur = con.cursor()
+                        for pid, qty in used_parts:
+                            p = cur.execute("SELECT * FROM products WHERE id=? AND active=1", (pid,)).fetchone()
+                            if p and p["stock"] >= qty:
+                                cur.execute("UPDATE products SET stock=stock-? WHERE id=?", (qty, pid))
+
+                    # 2. Registrar el producto ensamblado como compra
+                    register_purchase(
+                        "Colombia", final_sku, final_name.strip(), "Ensamblado",
+                        1, total_cost, "COP", "Caja Colombia", "Ensamblaje",
+                        f"Partes bodega: {stock_cost}, Partes externas: {ext_cost}",
+                        st.session_state.user["username"],
+                    )
+                    st.success(f"Producto '{final_name}' ensamblado. Costo total: {money(total_cost, 'COP')}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
