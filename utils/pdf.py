@@ -5,11 +5,12 @@ Usa ReportLab para crear documentos profesionales listos para enviar al cliente.
 
 from pathlib import Path
 from datetime import datetime
+import os
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.units import mm, inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 
 
 # ── Helpers ───────────────────────────────────────────────
@@ -74,6 +75,9 @@ def create_invoice_pdf(invoice, items, output_dir="facturas_pdf"):
     )
 
     story = []
+
+    # Logo
+    _add_logo(story, width=1.0*inch, height=1.0*inch)
 
     # Encabezado
     story.append(Paragraph("GAMETRONIX", title_style))
@@ -192,6 +196,34 @@ def create_invoice_pdf(invoice, items, output_dir="facturas_pdf"):
     return str(pdf_path)
 
 
+# ── Logo helper ────────────────────────────────────────────
+
+def _get_logo():
+    """Busca el logo en la carpeta del proyecto. Retorna path o None."""
+    logo_paths = [
+        Path(__file__).parent.parent / "logo.jpeg",
+        Path(__file__).parent.parent / "logo.png",
+        Path(__file__).parent.parent / "logo.jpg",
+    ]
+    for p in logo_paths:
+        if p.exists():
+            return str(p)
+    return None
+
+
+def _add_logo(story, width=1.2*inch, height=1.2*inch):
+    """Agrega el logo al story si existe."""
+    logo_path = _get_logo()
+    if logo_path:
+        try:
+            img = Image(logo_path, width=width, height=height)
+            img.hAlign = "CENTER"
+            story.append(img)
+            story.append(Spacer(1, 4))
+        except Exception:
+            pass
+
+
 # ── PDF de orden de reparación ────────────────────────────
 
 def create_repair_order_pdf(repair, stock_parts, external_parts, payments, output_dir="ordenes_reparacion_pdf"):
@@ -237,6 +269,9 @@ def create_repair_order_pdf(repair, stock_parts, external_parts, payments, outpu
     )
 
     story = []
+
+    # ── Logo ──────────────────────────────────────────
+    _add_logo(story, width=1.0*inch, height=1.0*inch)
 
     # ── Encabezado ─────────────────────────────────────
     story.append(Paragraph("GAMETRONIX", title_style))
