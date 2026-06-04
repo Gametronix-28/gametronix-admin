@@ -2,7 +2,7 @@
 
 import streamlit as st
 from components.layout import header
-from db.product import list_inventory
+from db.product import list_inventory, generate_sku
 from db.purchase import register_purchase
 
 
@@ -15,12 +15,36 @@ def render():
         hide_index=True,
     )
 
+    inventory = list_inventory("Repuestos")
+
     with st.expander("Agregar / comprar repuesto"):
+        if not inventory.empty:
+            modo = st.radio("Modo", ["Agregar a repuesto existente", "Crear nuevo repuesto"], horizontal=True)
+        else:
+            modo = "Crear nuevo repuesto"
+
         with st.form("purchase_part"):
-            c1, c2, c3 = st.columns(3)
-            sku = c1.text_input("SKU / Código repuesto")
-            name = c2.text_input("Repuesto")
-            category = c3.text_input("Categoría", value="Repuesto")
+            if modo == "Agregar a repuesto existente":
+                product_label = st.selectbox(
+                    "Repuesto en bodega",
+                    inventory.apply(
+                        lambda r: f"{r['id']} - {r['sku']} - {r['name']} - Stock {r['stock']} - Costo {r['cost']}",
+                        axis=1,
+                    ),
+                )
+                pid = int(product_label.split(" - ")[0])
+                row = inventory[inventory["id"] == pid].iloc[0]
+                sku = row["sku"]
+                name = row["name"]
+                category = row.get("category") or "Repuesto"
+                st.info(f"SKU: {sku} | Stock actual: {row['stock']} | Costo: {row['cost']}")
+            else:
+                auto_sku = generate_sku("Repuestos")
+                c1, c2, c3 = st.columns(3)
+                sku = c1.text_input("SKU / Codigo repuesto", value=auto_sku)
+                name = c2.text_input("Repuesto")
+                category = c3.text_input("Categoria", value="Repuesto")
+
             c4, c5, c6 = st.columns(3)
             qty = c4.number_input("Cantidad", min_value=1, step=1)
             unit_cost = c5.number_input("Costo unitario COP", min_value=0.0, step=1000.0)
