@@ -291,11 +291,24 @@ def list_pending_repairs(limit=300):
 def list_repairs_by_client(client_query):
     with get_db() as con:
         like = f"%{client_query}%"
-        return read_sql(con, 
+        return read_sql(con,
             "SELECT id, order_code, date, client, phone, device, serial, issue, "
             "total, amount_paid, balance_due, status, technician FROM repairs "
             "WHERE active = 1 AND (client LIKE ? OR phone LIKE ? OR serial LIKE ? OR device LIKE ?) "
             "ORDER BY id DESC LIMIT 300",
             (like, like, like, like),
+        )
+
+
+def list_expiring_warranties(days=7):
+    """Reparaciones entregadas cuya garantia vence en los proximos N dias."""
+    with get_db() as con:
+        return read_sql(con,
+            "SELECT id, order_code, date, client, phone, device, status, warranty_days, delivered_at "
+            "FROM repairs WHERE active = 1 AND status = 'Entregado' AND delivered_at IS NOT NULL "
+            "AND warranty_days > 0 "
+            "AND date(delivered_at, '+' || warranty_days || ' days') BETWEEN date('now') AND date('now', '+' || ? || ' days') "
+            "ORDER BY date(delivered_at, '+' || warranty_days || ' days')",
+            (str(days),),
         )
 

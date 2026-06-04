@@ -339,8 +339,7 @@ MIGRATABLE_COLUMNS = {
 def initialize_database():
     """
     Inicializa la base de datos: crea tablas faltantes, agrega columnas nuevas,
-    y siembra datos por defecto.
-    Se llama UNA vez en app.py. Ninguna función CRUD debe llamar a esto.
+    indices, y siembra datos por defecto.
     """
     with get_db() as con:
         cur = con.cursor()
@@ -352,11 +351,45 @@ def initialize_database():
         # 2. Migrar columnas faltantes
         _migrate_columns(cur)
 
-        # 3. Sembrar datos por defecto
+        # 3. Crear indices (si no existen)
+        _create_indexes(cur)
+
+        # 4. Sembrar datos por defecto
         _seed_defaults(cur)
 
-        # 4. Completar order_code en reparaciones antiguas
+        # 5. Completar order_code en reparaciones antiguas
         _backfill_order_codes(cur)
+
+
+# ── Indices para acelerar busquedas ─────────────────────────
+
+_INDEXES = [
+    "CREATE INDEX IF NOT EXISTS idx_products_warehouse ON products(warehouse, active)",
+    "CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku, warehouse)",
+    "CREATE INDEX IF NOT EXISTS idx_purchases_warehouse ON purchases(warehouse, date)",
+    "CREATE INDEX IF NOT EXISTS idx_purchases_product ON purchases(product_id)",
+    "CREATE INDEX IF NOT EXISTS idx_invoices_date ON invoices(date)",
+    "CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id)",
+    "CREATE INDEX IF NOT EXISTS idx_repairs_date ON repairs(date)",
+    "CREATE INDEX IF NOT EXISTS idx_repairs_status ON repairs(status, active)",
+    "CREATE INDEX IF NOT EXISTS idx_repairs_client ON repairs(client, active)",
+    "CREATE INDEX IF NOT EXISTS idx_repair_payments_repair ON repair_payments(repair_id, active)",
+    "CREATE INDEX IF NOT EXISTS idx_cashbox_movements_cashbox ON cashbox_movements(cashbox, date, active)",
+    "CREATE INDEX IF NOT EXISTS idx_cashbox_movements_type ON cashbox_movements(type, active)",
+    "CREATE INDEX IF NOT EXISTS idx_usa_shipments_status ON usa_shipments(status, active)",
+    "CREATE INDEX IF NOT EXISTS idx_expenses_cashbox ON expenses(cashbox, date)",
+    "CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone)",
+    "CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date, active)",
+]
+
+
+def _create_indexes(cur):
+    """Crea indices para acelerar las consultas mas frecuentes."""
+    for idx_sql in _INDEXES:
+        try:
+            cur.execute(idx_sql)
+        except Exception:
+            pass
 
 
 def _migrate_columns(cur):

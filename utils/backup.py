@@ -21,6 +21,15 @@ def run_backup(db_path="gametronix.db", backup_dir="backups", keep_days=7):
     if today_backup.exists():
         return str(today_backup)
 
+    # Optimizar BD antes del backup
+    try:
+        import sqlite3
+        con = sqlite3.connect(db_path)
+        con.execute("VACUUM")
+        con.close()
+    except Exception:
+        pass
+
     # Crear backup
     shutil.copy2(db_path, str(today_backup))
 

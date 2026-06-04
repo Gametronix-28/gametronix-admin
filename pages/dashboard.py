@@ -213,9 +213,15 @@ def _render_alerts():
             items = ", ".join(f"{r['name']} ({r['stock']}/{r['min_stock']})" for _, r in low.head(5).iterrows())
             st.warning(f"⚠️ Stock bajo: {items}")
 
-    from db.repair import list_repairs
+    from db.repair import list_repairs, list_expiring_warranties
     repairs = list_repairs(100)
     if not repairs.empty:
         ready = repairs[(repairs["balance_due"] <= 0) & (repairs["status"] != "Entregado")]
         if not ready.empty:
             st.info(f"📦 {len(ready)} equipos listos para entregar. Ve a Taller → Entrega.")
+
+    # Alerta de garantias por vencer
+    expiring = list_expiring_warranties(7)
+    if not expiring.empty:
+        items = ", ".join(f"{r['order_code']} - {r['client']}" for _, r in expiring.head(5).iterrows())
+        st.warning(f"⏰ Garantias por vencer: {items}")
