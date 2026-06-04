@@ -96,3 +96,17 @@ def render():
                 st.warning(f"⚠️ Diferencia: {money(diff, 'COP')}. Revisa los movimientos.")
         else:
             st.dataframe(df, use_container_width=True, hide_index=True)
+
+    # ── Saldo inicial ────────────────────────────────────
+    with st.expander("🏁 Saldo inicial de caja", expanded=False):
+        st.caption("El saldo inicial es el dinero que habia en caja antes de registrar movimientos. Usa Dashboard → Inyectar capital para registrarlo.")
+        if not df.empty:
+            first_injections = df[df["type"] == "inyeccion_capital"]
+            if not first_injections.empty:
+                inicial = first_injections.iloc[-1]
+                st.metric("Primer capital registrado", money(float(inicial["amount"]), "COP"))
+                st.caption(f"Fecha: {inicial['date']} | {inicial['description']}")
+            else:
+                st.info("No hay inyeccion de capital registrada.")
+        else:
+            st.info("Sin movimientos.")
