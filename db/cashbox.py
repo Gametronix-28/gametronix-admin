@@ -44,6 +44,30 @@ def cashbox_add(cur, cashbox, amount, currency, type_, table, rid, desc, user):
     )
 
 
+def close_cashbox(cashbox, user, notes=""):
+    """Registra un cierre de caja con el saldo actual."""
+    balance = get_cashbox_balance(cashbox)
+    with get_db() as con:
+        con.execute(
+            "INSERT INTO cash_closings(date, cashbox, balance, user, notes) VALUES (?, ?, ?, ?, ?)",
+            (now(), cashbox, balance, user, notes),
+        )
+    return balance
+
+
+def list_cash_closings(cashbox=None, limit=50):
+    """Lista los cierres de caja registrados."""
+    sql = "SELECT id, date, cashbox, balance, user, notes FROM cash_closings"
+    params = []
+    if cashbox:
+        sql += " WHERE cashbox = ?"
+        params.append(cashbox)
+    sql += " ORDER BY id DESC LIMIT ?"
+    params.append(limit)
+    with get_db() as con:
+        return read_sql(con, sql, params)
+
+
 def inject_capital(cashbox, amount, payment_method, notes, user):
     """
     Inyecta capital directamente a una caja.

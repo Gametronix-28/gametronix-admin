@@ -1,6 +1,7 @@
 """Dashboard de ganancias con filtros, alertas y notificaciones."""
 
 import streamlit as st
+import pandas as pd
 from components.layout import header
 from components.forms import filter_date_range
 from utils.format import money
@@ -60,6 +61,39 @@ def render():
                 pending_repairs[["order_code", "client", "device", "total", "amount_paid", "balance_due", "status"]],
                 use_container_width=True, hide_index=True,
             )
+
+    # ── Graficos ────────────────────────────────────────
+    st.divider()
+    st.subheader("📊 Graficos del periodo")
+
+    from db.invoice import list_invoices_between
+    from db.repair import list_repairs_between
+
+    invoices_period = list_invoices_between(start, end)
+    repairs_period = list_repairs_between(start, end)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.caption("Ventas por dia")
+        if not invoices_period.empty and "date" in invoices_period.columns:
+            inv_daily = invoices_period.copy()
+            inv_daily["fecha"] = pd.to_datetime(inv_daily["date"]).dt.date
+            daily = inv_daily.groupby("fecha")["total"].sum().reset_index()
+            daily = daily.set_index("fecha")
+            st.bar_chart(daily, height=200)
+        else:
+            st.info("Sin ventas en este periodo")
+
+    with c2:
+        st.caption("Ingresos por reparaciones")
+        if not repairs_period.empty and "date" in repairs_period.columns:
+            rep_daily = repairs_period.copy()
+            rep_daily["fecha"] = pd.to_datetime(rep_daily["date"]).dt.date
+            r_daily = rep_daily.groupby("fecha")["total"].sum().reset_index()
+            r_daily = r_daily.set_index("fecha")
+            st.bar_chart(r_daily, height=200)
+        else:
+            st.info("Sin reparaciones en este periodo")
 
     with st.expander("💳 Saldos por medio de pago", expanded=False):
         payment_df = payment_method_summary(start, end)

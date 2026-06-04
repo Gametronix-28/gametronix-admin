@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import date
 from components.layout import header
 from utils.format import money
-from db.cashbox import get_cashbox_balance, list_cashbox_movements
+from db.cashbox import get_cashbox_balance, list_cashbox_movements, close_cashbox, list_cash_closings
 
 
 def render():
@@ -110,3 +110,21 @@ def render():
                 st.info("No hay inyeccion de capital registrada.")
         else:
             st.info("Sin movimientos.")
+
+    # ── Cierre de caja ───────────────────────────────────
+    st.divider()
+    with st.expander("🔒 Cierre de caja diario", expanded=False):
+        st.caption("Registra el saldo actual como cierre oficial del dia.")
+        with st.form("close_cashbox"):
+            notes = st.text_input("Nota del cierre", placeholder="Ej: Cierre turno mañana")
+            if st.form_submit_button("🔒 Registrar cierre de caja"):
+                balance = close_cashbox("Caja Colombia", st.session_state.user["username"], notes)
+                st.success(f"Cierre registrado. Saldo: {money(balance, 'COP')}")
+                st.rerun()
+
+        st.write("**Cierres anteriores:**")
+        closings = list_cash_closings("Caja Colombia", 10)
+        if not closings.empty:
+            st.dataframe(closings, use_container_width=True, hide_index=True)
+        else:
+            st.info("No hay cierres registrados.")

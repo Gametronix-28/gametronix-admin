@@ -270,6 +270,16 @@ TABLES = {
             active INTEGER NOT NULL DEFAULT 1
         )
     """,
+    "cash_closings": """
+        CREATE TABLE IF NOT EXISTS cash_closings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            cashbox TEXT NOT NULL,
+            balance REAL NOT NULL,
+            user TEXT NOT NULL,
+            notes TEXT
+        )
+    """,
     "customers": """
         CREATE TABLE IF NOT EXISTS customers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

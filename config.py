@@ -28,7 +28,19 @@ div[data-testid="metric-container"] {
     color: white;
 }
 div[data-testid="metric-container"] label {color: #d1d5db !important;}
+@media print {
+    .stApp header, .stApp footer, .stSidebar, button, [data-testid="stSidebar"] {display: none !important;}
+    .stApp {margin: 0 !important; padding: 0 !important;}
+}
 </style>
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#111827">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="GAMETRONIX">
 """
 
 # ── Credenciales por defecto ───────────────────────────────

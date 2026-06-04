@@ -29,6 +29,10 @@ st.markdown(CSS_STYLES, unsafe_allow_html=True)
 # ── Inicializar base de datos ──────────────────────────────
 initialize_database()
 
+# ── Backup diario ──────────────────────────────────────────
+from utils.backup import run_backup
+run_backup()
+
 # ── Autenticacion ──────────────────────────────────────────
 if "user" not in st.session_state:
     st.session_state.user = None

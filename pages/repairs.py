@@ -322,9 +322,40 @@ def _render_orders_list():
             else:
                 st.success("Pagado")
 
-        # PDF
+        # Acciones: PDF, WhatsApp, Imprimir
         with c8:
-            if st.button("PDF", key=f"pdfbtn_{rid}"):
+            col_pdf, col_wa = st.columns([1, 1])
+            with col_pdf:
+                if st.button("📄", key=f"pdfbtn_{rid}", help="Descargar PDF"):
+                    try:
+                        repair = get_repair(rid)
+                        if repair:
+                            stock_parts_df = list_repair_parts(300)
+                            ext_df = list_repair_external_parts(300)
+                            pay_df = list_repair_payments(300)
+                            pdf_path = create_repair_order_pdf(
+                                repair,
+                                stock_parts_df.to_dict("records"),
+                                ext_df.to_dict("records"),
+                                pay_df.to_dict("records"),
+                            )
+                            with open(pdf_path, "rb") as f:
+                                st.download_button(
+                                    f"Descargar {order}",
+                                    data=f,
+                                    file_name=f"Orden_{order}.pdf",
+                                    mime="application/pdf",
+                                    key=f"dl_{rid}",
+                                )
+                    except Exception as e:
+                        st.error(str(e))
+            with col_wa:
+                # Link de WhatsApp
+                phone_num = str(row.get("phone") or "").replace("+", "").replace(" ", "").replace("-", "")
+                if phone_num:
+                    msg = f"Hola {client}, tu equipo {device} (Orden {order}) esta listo para recoger. GAMETRONIX"
+                    wa_link = f"https://wa.me/57{phone_num}?text={msg.replace(' ', '%20')}"
+                    st.markdown(f'<a href="{wa_link}" target="_blank" style="text-decoration:none;font-size:18px;">📱</a>', unsafe_allow_html=True)
                 try:
                     repair = get_repair(rid)
                     if repair:
