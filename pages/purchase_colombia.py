@@ -2,6 +2,7 @@
 
 import streamlit as st
 from components.layout import header
+from utils.format import money
 from db.product import list_inventory, generate_sku
 from db.purchase import register_purchase, list_purchases
 
@@ -60,7 +61,6 @@ def render():
     st.subheader("🔧 Ensamblar producto")
     st.caption("Combina partes de bodega + compras externas en un solo producto para la venta. Las partes se descuentan del inventario y el costo se suma al producto final.")
 
-    repuestos = list_inventory("Repuestos")
     bodega_col = list_inventory("Colombia")
 
     with st.form("assemble_product"):
@@ -71,17 +71,15 @@ def render():
         final_name = c1.text_input("Nombre del producto armado", placeholder="Ej: Xbox 360 Completa")
         final_sku = c2.text_input("SKU producto final", value=auto_sku, key="assemble_sku")
 
-        # Partes desde bodega
-        st.markdown("**Partes desde bodega (se descuentan del stock)**")
+        # Partes desde Bodega Colombia (se descuentan del stock)
+        st.markdown("**Partes desde Bodega Colombia (se descuentan del stock)**")
         used_parts = []
-        # De Repuestos
-        if not repuestos.empty:
-            st.caption("Desde Bodega Repuestos:")
-            for i in range(1, 6):
+        if not bodega_col.empty:
+            for i in range(1, 7):
                 pc1, pc2 = st.columns([3, 1])
                 label = pc1.selectbox(
-                    f"Parte {i}",
-                    ["No usar"] + list(repuestos.apply(
+                    f"Producto {i}",
+                    ["No usar"] + list(bodega_col.apply(
                         lambda r: f"{r['id']} - {r['sku']} - {r['name']} - Stock {r['stock']} - Costo {r['cost']}",
                         axis=1,
                     )),
@@ -90,23 +88,8 @@ def render():
                 qty = pc2.number_input(f"Cant {i}", min_value=0, step=1, key=f"assemble_qty_{i}")
                 if label != "No usar" and qty > 0:
                     used_parts.append((int(label.split(" - ")[0]), int(qty)))
-
-        # De Bodega Colombia
-        if not bodega_col.empty:
-            st.caption("Desde Bodega Colombia:")
-            for i in range(1, 4):
-                pc1, pc2 = st.columns([3, 1])
-                label = pc1.selectbox(
-                    f"Producto Colombia {i}",
-                    ["No usar"] + list(bodega_col.apply(
-                        lambda r: f"{r['id']} - {r['sku']} - {r['name']} - Stock {r['stock']} - Costo {r['cost']}",
-                        axis=1,
-                    )),
-                    key=f"assemble_col_{i}",
-                )
-                qty = pc2.number_input(f"Cant {i}", min_value=0, step=1, key=f"assemble_col_qty_{i}")
-                if label != "No usar" and qty > 0:
-                    used_parts.append((int(label.split(" - ")[0]), int(qty)))
+        else:
+            st.info("No hay productos en Bodega Colombia.")
 
         # Compras externas
         st.markdown("**Partes compradas por fuera (se suman al costo)**")
