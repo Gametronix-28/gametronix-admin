@@ -73,22 +73,26 @@ def _render_new_order(parts):
         st.subheader(f"Equipos ({num_devices})")
 
         devices_list = []
+        individual_total = 0.0
         for i in range(1, num_devices + 1):
             with st.expander(f"Equipo {i}", expanded=(i == 1)):
-                dc1, dc2 = st.columns(2)
+                dc1, dc2, dc3 = st.columns([2, 1, 1])
                 dev_name = dc1.text_input(f"Equipo {i}", placeholder="Control PS5, Xbox, consola, etc.", key=f"dev_name_{i}")
-                dev_serial = dc2.text_input(f"Serial / IMEI equipo {i}", key=f"dev_serial_{i}")
+                dev_serial = dc2.text_input(f"Serial {i}", key=f"dev_serial_{i}")
+                dev_cost = dc3.number_input(f"Valor arreglo {i} COP", min_value=0.0, step=1000.0, key=f"dev_cost_{i}")
                 dev_issue = st.text_area(f"Falla reportada equipo {i}", key=f"dev_issue_{i}")
-                dev_diag = st.text_area(f"Diagnostico tecnico equipo {i}", key=f"dev_diag_{i}")
+                dev_diag = st.text_input(f"Diagnostico tecnico equipo {i}", key=f"dev_diag_{i}")
                 dev_sol = st.text_input(f"Solucion / trabajo equipo {i}", key=f"dev_sol_{i}")
                 if dev_name.strip():
                     devices_list.append({
                         "device": dev_name.strip(),
                         "serial": dev_serial.strip(),
+                        "cost": float(dev_cost),
                         "issue": dev_issue.strip(),
                         "diagnostic": dev_diag.strip(),
                         "solution": dev_sol.strip(),
                     })
+                    individual_total += float(dev_cost)
 
         # Si no se lleno ningun equipo, usar campos legacy
         if not devices_list:
@@ -96,8 +100,14 @@ def _render_new_order(parts):
 
         # ── Precio y pago ──────────────────────────────
         st.divider()
-        c7, c8, c9 = st.columns(3)
-        labor_price = c7.number_input("Valor total a cobrar COP", min_value=0.0, step=1000.0)
+        # Total calculado de los costos individuales
+        labor_price = individual_total
+        st.metric("Total a cobrar (suma de equipos)", money(labor_price, "COP"))
+        if labor_price == 0:
+            st.caption("Asigna valores de arreglo a cada equipo arriba o ingresa un total manual abajo.")
+            labor_price = st.number_input("Valor total manual COP", min_value=0.0, step=1000.0, key="manual_total")
+
+        c8, c9 = st.columns(2)
         amount_paid = c8.number_input("Abono / pago inicial COP", min_value=0.0, step=1000.0)
         payment = c9.selectbox(
             "Medio de pago del abono",

@@ -321,7 +321,11 @@ def create_repair_order_pdf(repair, stock_parts, external_parts, payments, outpu
     for i, dev in enumerate(devices_all, 1):
         dname = dev.get("device") or dev.get("device_name") or "-"
         dserial = dev.get("serial") or "-"
-        story.append(Paragraph(f"<b>Equipo {i}:</b> {dname} (Serial: {dserial})", normal))
+        dcost = dev.get("cost")
+        header_line = f"<b>Equipo {i}:</b> {dname} (Serial: {dserial})"
+        if dcost is not None and float(dcost) > 0:
+            header_line += f" — {_money(dcost)}"
+        story.append(Paragraph(header_line, normal))
         for label, key in [
             ("Falla", "issue"),
             ("Diagnostico", "diagnostic"),
