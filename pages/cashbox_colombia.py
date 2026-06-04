@@ -32,7 +32,7 @@ def render():
         c3.metric("Neto del periodo", money(ingresos - egresos, "COP"))
         st.dataframe(filtered, use_container_width=True, hide_index=True)
     else:
-        st.dataframe(filtered, use_container_width=True, hide_index=True)
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
     # ── Conciliacion ─────────────────────────────────────
     st.divider()
