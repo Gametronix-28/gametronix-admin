@@ -27,28 +27,43 @@ def render():
     c4.metric("Gastos Colombia", money(data["expenses_cop"], "COP"))
     c5.metric("Ganancia neta", money(data["net_profit_cop"], "COP"))
 
-    c6, c7, c8, c9 = st.columns(4)
-    c6.metric("En transito USA", data["shipments_sent"])
-    c7.metric("Perdidos USA", data["shipments_lost"])
-    c8.metric("Recibidos Colombia", data["shipments_received"])
-    c9.metric("Stock Repuestos", data["parts_stock"])
+    # ── Conciliacion de caja ────────────────────────────
+    saldo_col = get_cashbox_balance("Caja Colombia")
+    saldo_usa = get_cashbox_balance("Caja USA")
 
-    # ── Saldos cajas ─────────────────────────────────────
-    sc1, sc2 = st.columns(2)
-    sc1.metric("Saldo Caja Colombia", money(get_cashbox_balance("Caja Colombia"), "COP"))
-    sc2.metric("Saldo Caja USA", money(get_cashbox_balance("Caja USA"), "USD"))
+    # Calcular cuentas por cobrar (saldo pendiente de reparaciones)
+    from db.repair import list_pending_repairs
+    pending_repairs = list_pending_repairs(500)
+    cuentas_por_cobrar = float(pending_repairs["balance_due"].sum()) if not pending_repairs.empty else 0.0
+
+    st.subheader("💰 Conciliacion de caja")
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Saldo Caja Colombia", money(saldo_col, "COP"))
+    c2.metric("Cuentas por cobrar", money(cuentas_por_cobrar, "COP"),
+              help="Saldo pendiente de reparaciones que los clientes aun no han pagado")
+    c3.metric("Total real (caja + deudas)", money(saldo_col + cuentas_por_cobrar, "COP"),
+              help="Efectivo en caja + dinero que deben los clientes")
+    c4.metric("Saldo Caja USA", money(saldo_usa, "USD"))
+
+    # ── Envios USA ──────────────────────────────────────
+    e1, e2, e3 = st.columns(3)
+    e1.metric("En transito USA", data["shipments_sent"])
+    e2.metric("Recibidos Colombia", data["shipments_received"])
+    e3.metric("Stock Repuestos", data["parts_stock"])
+
+    with st.expander(f"📋 Cuentas por cobrar ({money(cuentas_por_cobrar, 'COP')})", expanded=False):
+        if pending_repairs.empty:
+            st.success("No hay cuentas pendientes.")
+        else:
+            st.dataframe(
+                pending_repairs[["order_code", "client", "device", "total", "amount_paid", "balance_due", "status"]],
+                use_container_width=True, hide_index=True,
+            )
 
     with st.expander("💳 Saldos por medio de pago", expanded=False):
         payment_df = payment_method_summary(start, end)
         _render_payment_cards(payment_df)
-
-    # ── Reparaciones pendientes ─────────────────────────
-    with st.expander("🔧 Reparaciones pendientes", expanded=False):
-        pending = list_pending_repairs(20)
-        if pending.empty:
-            st.success("No hay reparaciones con saldo pendiente.")
-        else:
-            st.dataframe(pending, use_container_width=True, hide_index=True)
 
     # ── Inyectar capital ─────────────────────────────────
     with st.expander("💵 Inyectar capital", expanded=False):
