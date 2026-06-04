@@ -270,6 +270,16 @@ TABLES = {
             active INTEGER NOT NULL DEFAULT 1
         )
     """,
+    "customers": """
+        CREATE TABLE IF NOT EXISTS customers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phone TEXT,
+            email TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL
+        )
+    """,
     "voids": """
         CREATE TABLE IF NOT EXISTS voids (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

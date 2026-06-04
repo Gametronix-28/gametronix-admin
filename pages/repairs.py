@@ -11,6 +11,7 @@ from db.repair import (
     get_repair, list_repairs, list_repair_parts, list_repair_external_parts,
     list_repair_payments, list_pending_repairs, list_repairs_by_client,
 )
+from db.customer import search_customers, add_customer
 
 
 def render():
@@ -54,10 +55,30 @@ def _render_new_order(parts):
         key="num_devices",
     )
 
+    # ── Buscar cliente (fuera del form) ──────────────────
+    customer_query = st.text_input("🔍 Buscar cliente por nombre o telefono", key="cust_search")
+    if customer_query:
+        results = search_customers(customer_query)
+        if not results.empty:
+            cust_options = results.apply(lambda r: f"{r['name']} | {r['phone']}", axis=1).tolist()
+            selected = st.selectbox("Clientes encontrados", cust_options, key="cust_select")
+            if selected:
+                parts_cust = selected.split(" | ")
+                st.session_state.prefill_client = parts_cust[0]
+                st.session_state.prefill_phone = parts_cust[1] if len(parts_cust) > 1 else ""
+
     with st.form("repair_advanced"):
         c1, c2, c3 = st.columns(3)
-        client = c1.text_input("Cliente")
-        phone = c2.text_input("Telefono / WhatsApp")
+        client = c1.text_input(
+            "Cliente",
+            value=st.session_state.get("prefill_client", ""),
+            key="client_input",
+        )
+        phone = c2.text_input(
+            "Telefono / WhatsApp",
+            value=st.session_state.get("prefill_phone", ""),
+            key="phone_input",
+        )
         technician = c3.text_input("Tecnico responsable")
 
         warranty_days = st.number_input("Garantia en dias", min_value=0, step=1, value=30)
