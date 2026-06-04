@@ -277,11 +277,10 @@ def create_repair_order_pdf(repair, stock_parts, external_parts, payments, outpu
     story.append(Paragraph("GAMETRONIX", title_style))
     story.append(Paragraph("Orden de Servicio Tecnico", subtitle_style))
 
-    # Datos del cliente y equipo
+    # Datos del cliente
     info_data = [
         ["Orden:", _safe(order_code), "Fecha:", _safe(repair.get("date"))],
         ["Cliente:", _safe(repair.get("client")), "Telefono:", _safe(repair.get("phone"))],
-        ["Equipo:", _safe(repair.get("device")), "Serial:", _safe(repair.get("serial"))],
         ["Tecnico:", _safe(repair.get("technician")), "Garantia:", f"{_safe(repair.get('warranty_days'))} dias"],
     ]
     info_table = Table(info_data, colWidths=[25 * mm, 55 * mm, 25 * mm, 55 * mm])
@@ -296,21 +295,52 @@ def create_repair_order_pdf(repair, stock_parts, external_parts, payments, outpu
     ]))
     story.append(info_table)
 
+    # ── Todos los equipos ──────────────────────────────
+    import json
+    devices_all = []
+    # Equipo principal
+    main_dev = {
+        "device": _safe(repair.get("device")),
+        "serial": _safe(repair.get("serial")),
+        "issue": _safe(repair.get("issue")),
+        "diagnostic": _safe(repair.get("diagnostic")),
+        "solution": _safe(repair.get("repair_solution")),
+    }
+    devices_all.append(main_dev)
+    # Equipos adicionales
+    extra_json = repair.get("additional_devices")
+    if extra_json and extra_json != "null":
+        try:
+            extra = json.loads(extra_json)
+            if isinstance(extra, list):
+                devices_all.extend(extra)
+        except Exception:
+            pass
+
+    story.append(Paragraph("EQUIPOS", section_style))
+    for i, dev in enumerate(devices_all, 1):
+        dname = dev.get("device") or dev.get("device_name") or "-"
+        dserial = dev.get("serial") or "-"
+        story.append(Paragraph(f"<b>Equipo {i}:</b> {dname} (Serial: {dserial})", normal))
+        for label, key in [
+            ("Falla", "issue"),
+            ("Diagnostico", "diagnostic"),
+            ("Solucion", "solution"),
+        ]:
+            val = dev.get(key, "")
+            if val:
+                story.append(Paragraph(f"&nbsp;&nbsp;{label}: {val}", small))
+
     # ── Datos del servicio ─────────────────────────────
+    story.append(Paragraph("DATOS DEL SERVICIO", section_style))
     service_items = [
         ("Accesorios recibidos", "accessories"),
         ("Estado en que se recibe", "received_condition"),
-        ("Falla reportada por el cliente", "issue"),
-        ("Diagnostico tecnico", "diagnostic"),
-        ("Solucion / trabajo realizado", "repair_solution"),
     ]
-    has_service_data = any(_safe(repair.get(k)) for _, k in service_items)
-    if has_service_data:
-        story.append(Paragraph("DATOS DEL SERVICIO", section_style))
-        for label, key in service_items:
-            value = _safe(repair.get(key))
-            if value:
-                story.append(Paragraph(f"<b>{label}:</b> {value}", normal))
+    for label, key in service_items:
+        value = _safe(repair.get(key))
+        if value:
+            story.append(Paragraph(f"<b>{label}:</b> {value}", normal))
 
     # ── Repuestos utilizados (solo nombres, sin costos) ─
     parts_used = []

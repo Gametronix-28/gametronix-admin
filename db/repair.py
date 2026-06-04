@@ -8,8 +8,9 @@ from utils.format import now
 def register_repair(client, phone, device, serial, accessories, received_condition, issue,
                     diagnostic, repair_solution, technician, warranty_days,
                     labor_price, status, payment_method, amount_paid,
-                    used_parts, external_parts, notes, user):
-    if not device.strip():
+                    used_parts, external_parts, notes, user,
+                    additional_devices=None):
+    if not device.strip() and not (additional_devices and len(additional_devices) > 0):
         raise ValueError("El equipo es obligatorio.")
 
     with get_db() as con:
@@ -53,16 +54,19 @@ def register_repair(client, phone, device, serial, accessories, received_conditi
         if amount_paid > total:
             raise ValueError("El abono/pago no puede ser mayor al total de la reparaciÃ³n.")
 
+        import json
+        extra_json = json.dumps(additional_devices) if additional_devices else None
+
         cur.execute(
             "INSERT INTO repairs(date, client, phone, device, serial, accessories, "
             "received_condition, issue, diagnostic, repair_solution, technician, "
             "warranty_days, labor_price, parts_cost, external_parts_cost, total, profit, "
-            "amount_paid, balance_due, status, payment_method, notes, user) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "amount_paid, balance_due, status, payment_method, notes, user, additional_devices) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (now(), client, phone, device, serial, accessories, received_condition,
              issue, diagnostic, repair_solution, technician, warranty_days,
              labor_price, stock_parts_cost, external_cost_total, total, profit,
-             amount_paid, balance_due, status, payment_method, notes, user),
+             amount_paid, balance_due, status, payment_method, notes, user, extra_json),
         )
         repair_id = cur.lastrowid
         order_code = f"REP-{repair_id:05d}"

@@ -41,28 +41,61 @@ def render():
 # ── Tab 1: Nueva orden ──────────────────────────────────
 
 def _render_new_order(parts):
-    st.subheader("Registrar nueva orden de reparación")
+    st.subheader("Registrar nueva orden de reparacion")
+
+    # Control de cantidad de equipos (fuera del form para que reaccione)
+    if "num_devices" not in st.session_state:
+        st.session_state.num_devices = 1
+
+    num_devices = st.number_input(
+        "Cantidad de equipos en esta orden",
+        min_value=1, max_value=10, step=1,
+        value=st.session_state.num_devices,
+        key="num_devices",
+    )
 
     with st.form("repair_advanced"):
         c1, c2, c3 = st.columns(3)
         client = c1.text_input("Cliente")
-        phone = c2.text_input("Teléfono / WhatsApp")
-        technician = c3.text_input("Técnico responsable")
+        phone = c2.text_input("Telefono / WhatsApp")
+        technician = c3.text_input("Tecnico responsable")
 
-        c4, c5, c6 = st.columns(3)
-        device = c4.text_input("Equipo", placeholder="Control PS5, Xbox, consola, etc.")
-        serial = c5.text_input("Serial / IMEI del equipo")
-        warranty_days = c6.number_input("Garantía en días", min_value=0, step=1, value=30)
+        warranty_days = st.number_input("Garantia en dias", min_value=0, step=1, value=30)
 
         accessories = st.text_input("Accesorios recibidos", placeholder="Cable, caja, joystick, tapas, etc.")
         received_condition = st.text_area(
-            "Estado en que se recibe el equipo",
-            placeholder="Rayones, golpes, botones dañados, no prende, etc.",
+            "Estado en que se reciben los equipos",
+            placeholder="Rayones, golpes, botones danados, no prende, etc.",
         )
-        issue = st.text_area("Falla reportada por el cliente")
-        diagnostic = st.text_area("Diagnóstico técnico")
-        repair_solution = st.text_area("Solución / trabajo a realizar")
 
+        # ── Equipos (dinamicos) ────────────────────────
+        st.divider()
+        st.subheader(f"Equipos ({num_devices})")
+
+        devices_list = []
+        for i in range(1, num_devices + 1):
+            with st.expander(f"Equipo {i}", expanded=(i == 1)):
+                dc1, dc2 = st.columns(2)
+                dev_name = dc1.text_input(f"Equipo {i}", placeholder="Control PS5, Xbox, consola, etc.", key=f"dev_name_{i}")
+                dev_serial = dc2.text_input(f"Serial / IMEI equipo {i}", key=f"dev_serial_{i}")
+                dev_issue = st.text_area(f"Falla reportada equipo {i}", key=f"dev_issue_{i}")
+                dev_diag = st.text_area(f"Diagnostico tecnico equipo {i}", key=f"dev_diag_{i}")
+                dev_sol = st.text_input(f"Solucion / trabajo equipo {i}", key=f"dev_sol_{i}")
+                if dev_name.strip():
+                    devices_list.append({
+                        "device": dev_name.strip(),
+                        "serial": dev_serial.strip(),
+                        "issue": dev_issue.strip(),
+                        "diagnostic": dev_diag.strip(),
+                        "solution": dev_sol.strip(),
+                    })
+
+        # Si no se lleno ningun equipo, usar campos legacy
+        if not devices_list:
+            devices_list = [{"device": "", "serial": "", "issue": "", "diagnostic": "", "solution": ""}]
+
+        # ── Precio y pago ──────────────────────────────
+        st.divider()
         c7, c8, c9 = st.columns(3)
         labor_price = c7.number_input("Valor total a cobrar COP", min_value=0.0, step=1000.0)
         amount_paid = c8.number_input("Abono / pago inicial COP", min_value=0.0, step=1000.0)
@@ -147,15 +180,18 @@ def _render_new_order(parts):
         p3.metric("Ganancia estimada", money(profit_preview, "COP"))
         p4.metric("Saldo pendiente", money(balance_preview, "COP"))
 
-        if st.form_submit_button("Guardar orden de reparación"):
+        if st.form_submit_button("Guardar orden de reparacion"):
             try:
+                # Primer equipo como principal
+                main = devices_list[0] if devices_list else {"device": "", "serial": "", "issue": "", "diagnostic": "", "solution": ""}
                 repair_id = register_repair(
-                    client, phone, device, serial, accessories, received_condition,
-                    issue, diagnostic, repair_solution, technician, int(warranty_days),
+                    client, phone, main["device"], main["serial"], accessories, received_condition,
+                    main["issue"], main["diagnostic"], main["solution"], technician, int(warranty_days),
                     float(labor_price), status, payment, float(amount_paid),
                     used_parts, external_parts, notes, st.session_state.user["username"],
+                    additional_devices=devices_list[1:] if len(devices_list) > 1 else [],
                 )
-                st.success(f"Orden de reparación registrada: REP-{repair_id:05d}")
+                st.success(f"Orden de reparacion registrada: REP-{repair_id:05d}")
                 st.rerun()
             except Exception as e:
                 st.error(str(e))

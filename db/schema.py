@@ -227,6 +227,7 @@ TABLES = {
             payment_method TEXT,
             delivered_at TEXT,
             notes TEXT,
+            additional_devices TEXT,
             user TEXT,
             active INTEGER NOT NULL DEFAULT 1
         )
@@ -308,6 +309,7 @@ MIGRATABLE_COLUMNS = {
         "amount_paid": "REAL NOT NULL DEFAULT 0",
         "balance_due": "REAL NOT NULL DEFAULT 0",
         "delivered_at": "TEXT",
+        "additional_devices": "TEXT",
     },
 }
 
