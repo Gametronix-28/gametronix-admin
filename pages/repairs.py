@@ -226,22 +226,22 @@ def _render_orders_list():
     for idx, row in repairs_df.iterrows():
         rid = int(row["id"])
         order = row.get("order_code", f"REP-{rid:05d}")
+        date_str = str(row.get("date") or "")[:10]  # solo fecha YYYY-MM-DD
         client = row.get("client") or "-"
-        phone = row.get("phone") or "-"
         device = row.get("device") or "-"
         current_status = row.get("status") or "Recibido"
         balance = float(row.get("balance_due") or 0)
         total = float(row.get("total") or 0)
 
-        # Fila principal: info + estado + acciones
-        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([0.9, 1.2, 1.1, 1.1, 0.8, 1.1, 1.8, 0.5])
+        # Fila: fecha + info + estado + acciones
+        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([0.7, 0.9, 1.1, 0.9, 0.8, 1.1, 1.8, 0.5])
 
         with c1:
-            st.write(f"**{order}**")
+            st.write(date_str)
         with c2:
-            st.write(client)
+            st.write(f"**{order}**")
         with c3:
-            st.write(phone)
+            st.write(client)
         with c4:
             st.write(device)
         with c5:

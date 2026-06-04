@@ -9,7 +9,7 @@ from db.connection import get_db
 from db.schema import initialize_database
 
 # Auth
-from db.auth import authenticate, list_users, add_user
+from db.auth import authenticate, list_users, add_user, update_user
 
 # Cashbox
 from db.cashbox import get_cashbox_balance, list_cashboxes, list_cashbox_movements, cashbox_add, inject_capital

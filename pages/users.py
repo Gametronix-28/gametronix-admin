@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 from components.layout import header
 from config import ROLES, ROLE_PERMISSIONS, MENU_OPTIONS
-from db.auth import list_users, add_user
+from db.auth import list_users, add_user, update_user
 
 
 def render():
@@ -22,6 +22,33 @@ def render():
         col_order = ["id", "username", "role", "permissions", "active", "created_at"]
         df = df[[c for c in col_order if c in df.columns]]
         st.dataframe(df, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    # ── Editar usuario existente ────────────────────────
+    st.subheader("Editar usuario existente")
+    if users_list:
+        edit_id = st.selectbox(
+            "Usuario a editar",
+            [u["id"] for u in users_list],
+            format_func=lambda x: f"#{x} - {next((u['username'] for u in users_list if u['id'] == x), '')}",
+            key="edit_user_select",
+        )
+        selected_user = next((u for u in users_list if u["id"] == edit_id), None)
+        if selected_user:
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                new_role = st.selectbox("Nuevo rol", ROLES, key="edit_role")
+            with c2:
+                new_pass = st.text_input("Nueva contraseña (dejar vacio para no cambiar)", type="password", key="edit_pass")
+            with c3:
+                new_active = st.selectbox("Activo", [1, 0], format_func=lambda x: "Si" if x == 1 else "No", key="edit_active")
+            with c4:
+                st.write("")
+                if st.button("Guardar cambios", key="btn_edit_user"):
+                    update_user(edit_id, role=new_role, password=new_pass if new_pass else None, active=new_active)
+                    st.success(f"Usuario #{edit_id} actualizado.")
+                    st.rerun()
 
     st.divider()
     st.subheader("Crear nuevo usuario")

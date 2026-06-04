@@ -257,7 +257,7 @@ def list_voids():
         return read_sql(con, "SELECT * FROM voids ORDER BY id DESC LIMIT 300")
 
 
-def export_to_excel():
+def export_to_excel(start=None, end=None):
     out = "gametronix_respaldo.xlsx"
     tables = [
         "products", "purchases", "invoices", "invoice_items", "sales",
@@ -268,8 +268,17 @@ def export_to_excel():
     with get_db() as con:
         with pd.ExcelWriter(out, engine="openpyxl") as writer:
             for table in tables:
-                read_sql(con, f"SELECT * FROM {table}").to_excel(
-                    writer, sheet_name=table[:31], index=False,
-                )
+                if start and end:
+                    cols = [r[1] for r in con.execute(f"PRAGMA table_info({table})").fetchall()]
+                    if "date" in cols:
+                        df = read_sql(con,
+                            f"SELECT * FROM {table} WHERE date(date) BETWEEN date(?) AND date(?)",
+                            (start, end),
+                        )
+                    else:
+                        df = read_sql(con, f"SELECT * FROM {table}")
+                else:
+                    df = read_sql(con, f"SELECT * FROM {table}")
+                df.to_excel(writer, sheet_name=table[:31], index=False)
     return out
 

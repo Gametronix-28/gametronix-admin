@@ -5,7 +5,6 @@ Usa ReportLab para crear documentos profesionales listos para enviar al cliente.
 
 from pathlib import Path
 from datetime import datetime
-import os
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle

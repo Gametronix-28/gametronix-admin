@@ -86,3 +86,20 @@ def add_user(username, password, role, permissions=None):
             "VALUES (?, ?, ?, ?, ?)",
             (username, _hash_password(password), role, perms_json, now()),
         )
+
+
+def update_user(user_id, role=None, permissions=None, password=None, active=None):
+    """Edita un usuario existente: rol, permisos, contraseña, activo."""
+    with get_db() as con:
+        if role is not None:
+            con.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+        if permissions is not None:
+            perms_json = json.dumps(permissions) if permissions else None
+            con.execute("UPDATE users SET permissions = ? WHERE id = ?", (perms_json, user_id))
+        if password is not None and password.strip():
+            con.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (_hash_password(password), user_id),
+            )
+        if active is not None:
+            con.execute("UPDATE users SET active = ? WHERE id = ?", (int(active), user_id))
