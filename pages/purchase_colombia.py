@@ -29,7 +29,7 @@ def render():
             for _, r in inventory.iterrows():
                 label = f"{r['id']} - {r['sku']} - {r['name']}"
                 raw_attrs = r.get("attributes")
-                if raw_attrs and str(raw_attrs) not in ("None", "", "null"):
+                if raw_attrs and str(raw_attrs) not in ("None", "", "null", "{}"):
                     try:
                         attrs = json.loads(str(raw_attrs))
                         attr_str = " | ".join(f"{k}: {v}" for k, v in attrs.items())
@@ -45,6 +45,25 @@ def render():
             sku = row["sku"]
             name = row["name"]
             category = row.get("category") or ""
+
+            # Mostrar y permitir editar atributos del producto seleccionado
+            raw_attrs = row.get("attributes")
+            if raw_attrs and str(raw_attrs) not in ("None", "", "null", "{}"):
+                try:
+                    attrs = json.loads(str(raw_attrs)) if isinstance(raw_attrs, str) else raw_attrs
+                    if attrs and isinstance(attrs, dict) and len(attrs) > 0:
+                        st.caption("Variantes actuales (puedes cambiarlas):")
+                        n = len(attrs)
+                        cols = st.columns(n)
+                        keys = list(attrs.keys())
+                        for i, k in enumerate(keys):
+                            vals = [x.strip() for x in str(attrs[k]).split(",")]
+                            with cols[i]:
+                                selected_attrs[k] = st.selectbox(k, vals, key=f"exist_attr_{i}")
+                        st.info(f"Variantes: {' | '.join(f'{k}: {v}' for k, v in selected_attrs.items())}")
+                except Exception:
+                    pass
+
             st.info(f"SKU: {sku} | Stock actual: {row['stock']} | Costo: {float(row['cost']):,.0f}")
         else:
             # Catalogo de productos existentes
