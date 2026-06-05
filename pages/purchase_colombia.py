@@ -16,13 +16,10 @@ def render():
     # Selector de producto existente O nuevo
     if inventory.empty:
         modo = "Crear nuevo producto"
-    else:
-        modo = st.radio("Modo", ["Agregar a producto existente", "Crear nuevo producto"], horizontal=True)
-
     with st.form("purchase_colombia"):
         selected_attrs = {}
 
-        if modo == "Agregar a producto existente":
+        if not inventory.empty:
             # Mostrar productos con sus atributos en el label
             import json
             labels = []
@@ -38,14 +35,22 @@ def render():
                         pass
                 label += f" - Stock {r['stock']}"
                 labels.append(label)
+            labels.append("+ Nuevo producto (escribir nombre)")
 
             product_label = st.selectbox("Producto en bodega", labels)
-            pid = int(product_label.split(" - ")[0])
-            row = inventory[inventory["id"] == pid].iloc[0]
-            sku = row["sku"]
-            name = row["name"]
-            category = row.get("category") or ""
-            st.info(f"SKU: {sku} | Stock actual: {row['stock']} | Costo: {float(row['cost']):,.0f}")
+            if product_label == "+ Nuevo producto (escribir nombre)":
+                auto_sku = generate_sku("Colombia")
+                c1, c2, c3 = st.columns(3)
+                sku = c1.text_input("SKU / Codigo", value=auto_sku)
+                name = c2.text_input("Producto", placeholder="Nombre del producto")
+                category = c3.text_input("Categoria")
+            else:
+                pid = int(product_label.split(" - ")[0])
+                row = inventory[inventory["id"] == pid].iloc[0]
+                sku = row["sku"]
+                name = row["name"]
+                category = row.get("category") or ""
+                st.info(f"SKU: {sku} | Stock actual: {row['stock']} | Costo: {float(row['cost']):,.0f}")
         else:
             auto_sku = generate_sku("Colombia")
             c1, c2, c3 = st.columns(3)
