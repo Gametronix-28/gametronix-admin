@@ -21,19 +21,29 @@ def render():
 
     with st.form("purchase_colombia"):
         if modo == "Agregar a producto existente":
-            product_label = st.selectbox(
-                "Producto en bodega",
-                inventory.apply(
-                    lambda r: f"{r['id']} - {r['sku']} - {r['name']} - Stock {r['stock']} - Costo {r['cost']}",
-                    axis=1,
-                ),
-            )
+            # Mostrar productos con sus atributos
+            import json
+            labels = []
+            for _, r in inventory.iterrows():
+                label = f"{r['id']} - {r['sku']} - {r['name']}"
+                raw_attrs = r.get("attributes")
+                if raw_attrs and str(raw_attrs) not in ("None", "", "null"):
+                    try:
+                        attrs = json.loads(str(raw_attrs))
+                        attr_str = " | ".join(f"{k}: {v}" for k, v in attrs.items())
+                        label += f" [{attr_str}]"
+                    except Exception:
+                        pass
+                label += f" - Stock {r['stock']}"
+                labels.append(label)
+
+            product_label = st.selectbox("Producto en bodega", labels)
             pid = int(product_label.split(" - ")[0])
             row = inventory[inventory["id"] == pid].iloc[0]
             sku = row["sku"]
             name = row["name"]
             category = row.get("category") or ""
-            st.info(f"SKU: {sku} | Stock actual: {row['stock']} | Costo: {row['cost']}")
+            st.info(f"SKU: {sku} | Stock actual: {row['stock']} | Costo: {float(row['cost']):,.0f}")
         else:
             # Catalogo de productos existentes
             catalog = get_product_names("Colombia")
