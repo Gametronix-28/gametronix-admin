@@ -23,7 +23,7 @@ def render():
         selected_attrs = {}
 
         if modo == "Agregar a producto existente":
-            # Mostrar productos con sus atributos
+            # Mostrar productos con sus atributos en el label
             import json
             labels = []
             for _, r in inventory.iterrows():
@@ -45,63 +45,18 @@ def render():
             sku = row["sku"]
             name = row["name"]
             category = row.get("category") or ""
-
-            # Mostrar y permitir editar atributos del producto seleccionado
-            raw_attrs = row.get("attributes")
-            if raw_attrs and str(raw_attrs) not in ("None", "", "null", "{}"):
-                try:
-                    attrs = json.loads(str(raw_attrs)) if isinstance(raw_attrs, str) else raw_attrs
-                    if attrs and isinstance(attrs, dict) and len(attrs) > 0:
-                        st.caption("Variantes actuales (puedes cambiarlas):")
-                        n = len(attrs)
-                        cols = st.columns(n)
-                        keys = list(attrs.keys())
-                        for i, k in enumerate(keys):
-                            vals = [x.strip() for x in str(attrs[k]).split(",")]
-                            with cols[i]:
-                                selected_attrs[k] = st.selectbox(k, vals, key=f"exist_attr_{i}")
-                        st.info(f"Variantes: {' | '.join(f'{k}: {v}' for k, v in selected_attrs.items())}")
-                except Exception:
-                    pass
-
             st.info(f"SKU: {sku} | Stock actual: {row['stock']} | Costo: {float(row['cost']):,.0f}")
         else:
-            # Catalogo de productos existentes
-            catalog = get_product_names("Colombia")
-            selected_cat = "(Nuevo)"
-            cat_item = None
-            if catalog and len(catalog) > 0:
-                cat_names = ["(Nuevo)"] + [p["name"] for p in catalog]
-                selected_cat = st.selectbox("Producto del catalogo", cat_names, help="Selecciona un producto existente o (Nuevo)")
-                if selected_cat != "(Nuevo)":
-                    cat_item = next((p for p in catalog if p["name"] == selected_cat), None)
-
             auto_sku = generate_sku("Colombia")
             c1, c2, c3 = st.columns(3)
             sku = c1.text_input("SKU / Codigo", value=auto_sku)
-            name = c2.text_input("Producto", value=selected_cat if selected_cat != "(Nuevo)" else "")
-            category = c3.text_input("Categoria", value=cat_item.get("category", "") if cat_item else "")
+            name = c2.text_input("Producto", placeholder="Nombre del producto")
+            category = c3.text_input("Categoria")
 
-            # Atributos: intentar cargar del catalogo
-            raw_attrs = cat_item.get("attributes") if cat_item else None
-            if raw_attrs and str(raw_attrs) not in ("None", "", "null", "{}"):
-                try:
-                    if isinstance(raw_attrs, str):
-                        attrs = json.loads(raw_attrs)
-                    else:
-                        attrs = raw_attrs
-                    if attrs and isinstance(attrs, dict) and len(attrs) > 0:
-                        st.caption("Selecciona las variantes:")
-                        n = len(attrs)
-                        cols = st.columns(n)
-                        keys = list(attrs.keys())
-                        for i, k in enumerate(keys):
-                            vals = [x.strip() for x in str(attrs[k]).split(",")]
-                            with cols[i]:
-                                selected_attrs[k] = st.selectbox(k, vals, key=f"pur_attr_{i}")
-                        st.info(f"Variantes: {' | '.join(f'{k}: {v}' for k, v in selected_attrs.items())}")
-                except Exception as e:
-                    st.caption(f"(atributos no disponibles: {e})")
+        # Cargar atributos del catalogo si el nombre coincide
+        catalog_attrs = _load_attributes_for_name(name)
+        if catalog_attrs:
+            selected_attrs.update(catalog_attrs)
 
         c4, c5, c6 = st.columns(3)
         qty = c4.number_input("Cantidad", min_value=1, step=1, value=1)
@@ -124,6 +79,40 @@ def render():
             st.rerun()
 
     # El historial de compras ahora esta en Bodega Colombia → Historial de compras
+
+    # ── Ensamblar producto
+
+
+def _load_attributes_for_name(product_name):
+    """Busca el nombre en el catalogo y muestra selectores de atributos si coincide.
+    Retorna un dict con los valores seleccionados."""
+    if not product_name or not product_name.strip():
+        return {}
+    catalog = get_product_names("Colombia")
+    if not catalog:
+        return {}
+    match = next((p for p in catalog if p["name"].lower() == product_name.strip().lower()), None)
+    if not match:
+        return {}
+    raw_attrs = match.get("attributes")
+    if not raw_attrs or str(raw_attrs) in ("None", "", "null", "{}"):
+        return {}
+    try:
+        attrs = json.loads(str(raw_attrs)) if isinstance(raw_attrs, str) else raw_attrs
+        if not attrs or not isinstance(attrs, dict) or len(attrs) == 0:
+            return {}
+        st.caption(f"Atributos de '{match['name']}':")
+        n = len(attrs)
+        cols = st.columns(n)
+        keys = list(attrs.keys())
+        result = {}
+        for i, k in enumerate(keys):
+            vals = [x.strip() for x in str(attrs[k]).split(",")]
+            with cols[i]:
+                result[k] = st.selectbox(k, vals, key=f"attr_load_{i}")
+        return result
+    except Exception:
+        return {}
 
     # ── Ensamblar producto ──────────────────────────────
     st.divider()
