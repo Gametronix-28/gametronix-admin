@@ -51,16 +51,14 @@ def _render_inventory():
 
         # Mostrar detalle si esta expandido
         if st.session_state.get(f"expanded_{name}", False):
-            from db.connection import get_db
             rows = []
             for _, row in group.iterrows():
                 attrs_parts = []
-                attrs_dict = {}
                 raw = row.get("attributes")
-                if raw and str(raw) not in ("None", "", "null"):
+                if raw and str(raw) not in ("None", "", "null", "{}"):
                     try:
-                        attrs_dict = json.loads(str(raw))
-                        attrs_parts = [f"{k}: {v}" for k, v in attrs_dict.items()]
+                        a = json.loads(str(raw))
+                        attrs_parts = [f"{k}: {v}" for k, v in a.items()]
                     except Exception:
                         pass
                 rows.append({
@@ -69,34 +67,6 @@ def _render_inventory():
                     "Stock": int(row["stock"]),
                     "Costo": money(float(row["cost"]), "COP"),
                 })
-
-                # Permitir editar atributos si estan vacios
-                rid = int(row["id"])
-                if not attrs_dict:
-                    # Buscar en catalogo
-                    catalog = get_product_names("Colombia")
-                    match = next((p for p in catalog if p["name"].lower() == name.lower()), None)
-                    if match and match.get("attributes") and str(match["attributes"]) not in ("None", "", "null", "{}"):
-                        try:
-                            cat_attrs = json.loads(str(match["attributes"]))
-                            st.caption(f"Asignar atributos del catalogo a {row['sku']}:")
-                            new_attrs = {}
-                            acols = st.columns(len(cat_attrs))
-                            for i, (k, v) in enumerate(cat_attrs.items()):
-                                vals = [x.strip() for x in str(v).split(",")]
-                                with acols[i]:
-                                    new_attrs[k] = st.selectbox(k, vals, key=f"inv_attr_{rid}_{i}")
-                            if st.button(f"Guardar atributos en {row['sku']}", key=f"save_attr_{rid}"):
-                                with get_db() as con:
-                                    con.execute(
-                                        "UPDATE products SET attributes = ? WHERE id = ?",
-                                        (json.dumps(new_attrs), rid),
-                                    )
-                                st.success("Atributos guardados.")
-                                st.rerun()
-                        except Exception:
-                            pass
-
             detail_df = pd.DataFrame(rows)
             st.dataframe(detail_df, use_container_width=True, hide_index=True)
 
