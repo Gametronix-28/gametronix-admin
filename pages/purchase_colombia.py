@@ -37,30 +37,32 @@ def render():
         else:
             # Catalogo de productos existentes
             catalog = get_product_names("Colombia")
+            selected_cat = "(Nuevo)"
+            cat_item = None
             if catalog:
                 cat_names = ["(Nuevo)"] + [p["name"] for p in catalog]
                 selected_cat = st.selectbox("Producto del catalogo", cat_names, help="Selecciona un producto existente o (Nuevo)")
                 if selected_cat != "(Nuevo)":
-                    # Mostrar atributos del producto seleccionado
                     cat_item = next((p for p in catalog if p["name"] == selected_cat), None)
-                    if cat_item and cat_item.get("attributes"):
-                        try:
-                            attrs = json.loads(cat_item["attributes"])
-                            st.caption("Atributos / variantes:")
-                            attr_cols = st.columns(len(attrs))
-                            attr_values = {}
-                            for i, (k, v) in enumerate(attrs.items()):
-                                vals = [x.strip() for x in str(v).split(",")]
-                                attr_values[k] = attr_cols[i].selectbox(k, vals, key=f"attr_{i}")
-                            st.info(f"Seleccion: {' | '.join(f'{k}: {v}' for k, v in attr_values.items())}")
-                        except Exception:
-                            pass
+
+            # Atributos dinamicos si hay catalogo
+            if cat_item and cat_item.get("attributes"):
+                try:
+                    attrs = json.loads(cat_item["attributes"])
+                    st.caption("Variantes del producto:")
+                    cols = st.columns(min(len(attrs), 4))
+                    for i, (k, v) in enumerate(attrs.items()):
+                        vals = [x.strip() for x in str(v).split(",")]
+                        with cols[i % 4]:
+                            st.selectbox(k, vals, key=f"pur_attr_{i}")
+                except Exception:
+                    pass
 
             auto_sku = generate_sku("Colombia")
             c1, c2, c3 = st.columns(3)
             sku = c1.text_input("SKU / Codigo", value=auto_sku)
             name = c2.text_input("Producto", value=selected_cat if selected_cat != "(Nuevo)" else "")
-            category = c3.text_input("Categoria", value=cat_item.get("category", "") if selected_cat != "(Nuevo)" and cat_item else "")
+            category = c3.text_input("Categoria", value=cat_item.get("category", "") if cat_item else "")
 
         c4, c5, c6 = st.columns(3)
         qty = c4.number_input("Cantidad", min_value=1, step=1, value=1)

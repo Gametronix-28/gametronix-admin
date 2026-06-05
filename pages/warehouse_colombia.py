@@ -45,26 +45,21 @@ def render():
             cat_name = c1.text_input("Nombre del producto", placeholder="Ej: PlayStation 4")
             cat_category = c2.text_input("Categoria", placeholder="Ej: Consola")
 
-            st.caption("Atributos / variantes (opcional):")
-            ca1, ca2, ca3 = st.columns(3)
-            attr1_key = ca1.text_input("Atributo 1", value="Modelo", key="attr1k")
-            attr1_val = ca1.text_input("Valor", placeholder="Fat, Slim, Pro", key="attr1v")
-            attr2_key = ca2.text_input("Atributo 2", value="Almacenamiento", key="attr2k")
-            attr2_val = ca2.text_input("Valor", placeholder="500GB, 1TB", key="attr2v")
-            attr3_key = ca3.text_input("Atributo 3", value="Programable", key="attr3k")
-            attr3_val = ca3.text_input("Valor", placeholder="Si, No", key="attr3v")
+            st.caption("Atributos / variantes (llena solo los que necesites):")
+            num_attrs = st.number_input("Cantidad de atributos", min_value=0, max_value=10, value=1, step=1)
+
+            attrs = {}
+            for i in range(1, int(num_attrs) + 1):
+                ck, cv = st.columns(2)
+                key_name = ck.text_input(f"Nombre del atributo {i}", placeholder="Ej: Modelo, Color, Capacidad...", key=f"cat_ak_{i}")
+                key_vals = cv.text_input(f"Opciones (separadas por coma)", placeholder="Ej: Fat, Slim, Pro", key=f"cat_av_{i}")
+                if key_name.strip() and key_vals.strip():
+                    attrs[key_name.strip()] = key_vals.strip()
 
             if st.form_submit_button("Agregar al catalogo"):
                 if not cat_name.strip():
                     st.error("El nombre es obligatorio.")
                 else:
-                    attrs = {}
-                    if attr1_key.strip() and attr1_val.strip():
-                        attrs[attr1_key.strip()] = attr1_val.strip()
-                    if attr2_key.strip() and attr2_val.strip():
-                        attrs[attr2_key.strip()] = attr2_val.strip()
-                    if attr3_key.strip() and attr3_val.strip():
-                        attrs[attr3_key.strip()] = attr3_val.strip()
                     add_product_to_catalog("Colombia", cat_name, cat_category, attrs if attrs else None, st.session_state.user["username"])
-                    st.success(f"'{cat_name}' agregado al catalogo.")
+                    st.success(f"'{cat_name}' agregado al catalogo con {len(attrs)} atributos.")
                     st.rerun()
