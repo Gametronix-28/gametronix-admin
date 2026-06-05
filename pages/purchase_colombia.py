@@ -51,33 +51,38 @@ def render():
             catalog = get_product_names("Colombia")
             selected_cat = "(Nuevo)"
             cat_item = None
-            if catalog:
+            if catalog and len(catalog) > 0:
                 cat_names = ["(Nuevo)"] + [p["name"] for p in catalog]
                 selected_cat = st.selectbox("Producto del catalogo", cat_names, help="Selecciona un producto existente o (Nuevo)")
                 if selected_cat != "(Nuevo)":
                     cat_item = next((p for p in catalog if p["name"] == selected_cat), None)
-
-            # Atributos dinamicos si hay catalogo
-            if cat_item and cat_item.get("attributes"):
-                try:
-                    attrs = json.loads(cat_item["attributes"])
-                    st.caption("Selecciona las variantes del producto:")
-                    n = len(attrs)
-                    if n > 0:
-                        cols = st.columns(n)
-                        for i, (k, v) in enumerate(attrs.items()):
-                            vals = [x.strip() for x in str(v).split(",")]
-                            with cols[i]:
-                                selected_attrs[k] = st.selectbox(k, vals, key=f"pur_attr_{i}")
-                        st.info(f"Variantes: {' | '.join(f'{k}: {v}' for k, v in selected_attrs.items())}")
-                except Exception:
-                    pass
 
             auto_sku = generate_sku("Colombia")
             c1, c2, c3 = st.columns(3)
             sku = c1.text_input("SKU / Codigo", value=auto_sku)
             name = c2.text_input("Producto", value=selected_cat if selected_cat != "(Nuevo)" else "")
             category = c3.text_input("Categoria", value=cat_item.get("category", "") if cat_item else "")
+
+            # Atributos: intentar cargar del catalogo
+            raw_attrs = cat_item.get("attributes") if cat_item else None
+            if raw_attrs and str(raw_attrs) not in ("None", "", "null", "{}"):
+                try:
+                    if isinstance(raw_attrs, str):
+                        attrs = json.loads(raw_attrs)
+                    else:
+                        attrs = raw_attrs
+                    if attrs and isinstance(attrs, dict) and len(attrs) > 0:
+                        st.caption("Selecciona las variantes:")
+                        n = len(attrs)
+                        cols = st.columns(n)
+                        keys = list(attrs.keys())
+                        for i, k in enumerate(keys):
+                            vals = [x.strip() for x in str(attrs[k]).split(",")]
+                            with cols[i]:
+                                selected_attrs[k] = st.selectbox(k, vals, key=f"pur_attr_{i}")
+                        st.info(f"Variantes: {' | '.join(f'{k}: {v}' for k, v in selected_attrs.items())}")
+                except Exception as e:
+                    st.caption(f"(atributos no disponibles: {e})")
 
         c4, c5, c6 = st.columns(3)
         qty = c4.number_input("Cantidad", min_value=1, step=1, value=1)
