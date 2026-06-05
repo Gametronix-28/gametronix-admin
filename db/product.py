@@ -59,17 +59,29 @@ def list_inventory(warehouse=None, q=""):
 
 
 def generate_sku(warehouse):
-    """Genera el siguiente SKU automatico: GTX-001, GTX-002, ..."""
+    """
+    Genera el siguiente SKU automatico segun la bodega:
+    - Colombia: GTX-001, GTX-002, ...
+    - USA: USA-001, USA-002, ...
+    - Repuestos: RPT-001, RPT-002, ...
+    """
+    prefixes = {
+        "Colombia": "GTX",
+        "USA": "USA",
+        "Repuestos": "RPT",
+    }
+    prefix = prefixes.get(warehouse, "GTX")
+
     with get_db() as con:
         row = con.execute(
-            "SELECT sku FROM products WHERE warehouse = ? AND sku LIKE 'GTX-%' "
-            "ORDER BY id DESC LIMIT 1", (warehouse,)
+            "SELECT sku FROM products WHERE warehouse = ? AND sku LIKE ? "
+            "ORDER BY id DESC LIMIT 1", (warehouse, f"{prefix}-%"),
         ).fetchone()
         if row and row["sku"]:
             try:
-                num = int(row["sku"].replace("GTX-", "").replace("-", ""))
-                return f"GTX-{num + 1:03d}"
+                num = int(row["sku"].replace(f"{prefix}-", "").replace("-", ""))
+                return f"{prefix}-{num + 1:03d}"
             except Exception:
                 pass
-        return "GTX-001"
+        return f"{prefix}-001"
 
