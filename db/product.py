@@ -4,7 +4,8 @@ from db.connection import get_db, read_sql
 from utils.format import now
 
 
-def add_or_update_product(cur, warehouse, sku, name, category, qty, unit_cost, currency, location):
+def add_or_update_product(cur, warehouse, sku, name, category, qty, unit_cost, currency, location, attributes=None):
+    import json
     if sku:
         row = cur.execute(
             "SELECT * FROM products WHERE warehouse = ? AND active = 1 AND sku = ? LIMIT 1",
@@ -18,6 +19,8 @@ def add_or_update_product(cur, warehouse, sku, name, category, qty, unit_cost, c
             (warehouse, name),
         ).fetchone()
 
+    attrs_json = json.dumps(attributes) if attributes else None
+
     if row:
         pid = row["id"]
         old_stock = row["stock"]
@@ -25,16 +28,16 @@ def add_or_update_product(cur, warehouse, sku, name, category, qty, unit_cost, c
         new_stock = old_stock + qty
         avg_cost = ((old_stock * old_cost) + (qty * unit_cost)) / new_stock if new_stock else unit_cost
         cur.execute(
-            "UPDATE products SET stock = ?, cost = ?, currency = ? WHERE id = ?",
-            (new_stock, avg_cost, currency, pid),
+            "UPDATE products SET stock = ?, cost = ?, currency = ?, attributes = COALESCE(?, attributes) WHERE id = ?",
+            (new_stock, avg_cost, currency, attrs_json, pid),
         )
         return pid
 
     cur.execute(
         "INSERT INTO products(sku, name, category, stock, min_stock, cost, price, "
-        "currency, location, warehouse, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (sku or None, name, category, qty, 2, unit_cost, 0, currency, location, warehouse, now()),
+        "currency, location, warehouse, attributes, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (sku or None, name, category, qty, 2, unit_cost, 0, currency, location, warehouse, attrs_json, now()),
     )
     return cur.lastrowid
 

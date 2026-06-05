@@ -20,6 +20,8 @@ def render():
         modo = st.radio("Modo", ["Agregar a producto existente", "Crear nuevo producto"], horizontal=True)
 
     with st.form("purchase_colombia"):
+        selected_attrs = {}
+
         if modo == "Agregar a producto existente":
             # Mostrar productos con sus atributos
             import json
@@ -59,12 +61,15 @@ def render():
             if cat_item and cat_item.get("attributes"):
                 try:
                     attrs = json.loads(cat_item["attributes"])
-                    st.caption("Variantes del producto:")
-                    cols = st.columns(min(len(attrs), 4))
-                    for i, (k, v) in enumerate(attrs.items()):
-                        vals = [x.strip() for x in str(v).split(",")]
-                        with cols[i % 4]:
-                            st.selectbox(k, vals, key=f"pur_attr_{i}")
+                    st.caption("Selecciona las variantes del producto:")
+                    n = len(attrs)
+                    if n > 0:
+                        cols = st.columns(n)
+                        for i, (k, v) in enumerate(attrs.items()):
+                            vals = [x.strip() for x in str(v).split(",")]
+                            with cols[i]:
+                                selected_attrs[k] = st.selectbox(k, vals, key=f"pur_attr_{i}")
+                        st.info(f"Variantes: {' | '.join(f'{k}: {v}' for k, v in selected_attrs.items())}")
                 except Exception:
                     pass
 
@@ -86,6 +91,7 @@ def render():
                 "Colombia", sku, name, category, qty, unit_cost, "COP",
                 "Caja Colombia", supplier, notes, st.session_state.user["username"],
                 fiado=fiado,
+                attributes=selected_attrs if selected_attrs else None,
             )
             if fiado:
                 st.success("Compra Colombia registrada A CREDITO. La deuda queda pendiente por pagar.")

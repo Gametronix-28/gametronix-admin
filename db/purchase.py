@@ -6,7 +6,7 @@ from db.cashbox import cashbox_add
 from utils.format import now
 
 
-def register_purchase(warehouse, sku, name, category, qty, unit_cost, currency, cashbox, supplier, notes, user, fiado=False):
+def register_purchase(warehouse, sku, name, category, qty, unit_cost, currency, cashbox, supplier, notes, user, fiado=False, attributes=None):
     if not name.strip():
         raise ValueError("El nombre del producto es obligatorio.")
     total = qty * unit_cost
@@ -14,7 +14,8 @@ def register_purchase(warehouse, sku, name, category, qty, unit_cost, currency, 
     with get_db() as con:
         cur = con.cursor()
         product_id = add_or_update_product(
-            cur, warehouse, sku, name, category, qty, unit_cost, currency, f"Bodega {warehouse}"
+            cur, warehouse, sku, name, category, qty, unit_cost, currency, f"Bodega {warehouse}",
+            attributes=attributes,
         )
         cur.execute(
             "INSERT INTO purchases(date, warehouse, product_id, sku, product_name, qty, "
