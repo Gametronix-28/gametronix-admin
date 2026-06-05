@@ -280,6 +280,22 @@ TABLES = {
             notes TEXT
         )
     """,
+    "debts": """
+        CREATE TABLE IF NOT EXISTS debts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            supplier TEXT NOT NULL,
+            concept TEXT,
+            amount REAL NOT NULL,
+            currency TEXT NOT NULL DEFAULT 'COP',
+            cashbox TEXT NOT NULL,
+            paid INTEGER NOT NULL DEFAULT 0,
+            paid_date TEXT,
+            notes TEXT,
+            user TEXT,
+            active INTEGER NOT NULL DEFAULT 1
+        )
+    """,
     "customers": """
         CREATE TABLE IF NOT EXISTS customers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

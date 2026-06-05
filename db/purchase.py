@@ -6,7 +6,7 @@ from db.cashbox import cashbox_add
 from utils.format import now
 
 
-def register_purchase(warehouse, sku, name, category, qty, unit_cost, currency, cashbox, supplier, notes, user):
+def register_purchase(warehouse, sku, name, category, qty, unit_cost, currency, cashbox, supplier, notes, user, fiado=False):
     if not name.strip():
         raise ValueError("El nombre del producto es obligatorio.")
     total = qty * unit_cost
@@ -24,10 +24,19 @@ def register_purchase(warehouse, sku, name, category, qty, unit_cost, currency, 
              currency, cashbox, supplier, notes, user),
         )
         purchase_id = cur.lastrowid
-        cashbox_add(
-            cur, cashbox, -total, currency, "compra", "purchases",
-            purchase_id, f"Compra {warehouse}: {name} x {qty}", user,
-        )
+
+        if fiado:
+            # No descuenta caja, registra deuda (usando el mismo cursor)
+            from db.debt import register_debt
+            register_debt(
+                supplier or "Proveedor", f"Compra {warehouse}: {name} x {qty}",
+                total, currency, cashbox, notes, user, cur=cur,
+            )
+        else:
+            cashbox_add(
+                cur, cashbox, -total, currency, "compra", "purchases",
+                purchase_id, f"Compra {warehouse}: {name} x {qty}", user,
+            )
         return purchase_id
 
 

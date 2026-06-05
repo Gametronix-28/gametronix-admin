@@ -44,14 +44,19 @@ def render():
         qty = c4.number_input("Cantidad", min_value=1, step=1, value=1)
         unit_cost = c5.number_input("Costo unitario COP", min_value=0.0, step=1000.0)
         supplier = c6.text_input("Proveedor")
+        fiado = st.checkbox("💳 Fiado / a credito (no descuenta caja, registra deuda)", value=False)
         notes = st.text_area("Notas")
 
         if st.form_submit_button("Registrar compra Colombia"):
             register_purchase(
                 "Colombia", sku, name, category, qty, unit_cost, "COP",
                 "Caja Colombia", supplier, notes, st.session_state.user["username"],
+                fiado=fiado,
             )
-            st.success("Compra Colombia registrada.")
+            if fiado:
+                st.success("Compra Colombia registrada A CREDITO. La deuda queda pendiente por pagar.")
+            else:
+                st.success("Compra Colombia registrada. Se desconto de Caja Colombia.")
             st.rerun()
 
     st.dataframe(list_purchases("Colombia"), use_container_width=True, hide_index=True)

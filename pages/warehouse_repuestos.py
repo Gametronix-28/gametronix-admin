@@ -49,12 +49,15 @@ def render():
             qty = c4.number_input("Cantidad", min_value=1, step=1)
             unit_cost = c5.number_input("Costo unitario COP", min_value=0.0, step=1000.0)
             supplier = c6.text_input("Proveedor")
+            fiado = st.checkbox("💳 Fiado / a credito", value=False)
             notes = st.text_area("Notas")
 
             if st.form_submit_button("Guardar repuesto"):
                 register_purchase(
                     "Repuestos", sku, name, category, qty, unit_cost, "COP",
                     "Caja Colombia", supplier, notes, st.session_state.user["username"],
+                    fiado=fiado,
                 )
-                st.success("Repuesto agregado.")
+                msg = "A CREDITO. Deuda registrada." if fiado else "Se desconto de Caja Colombia."
+                st.success(f"Repuesto agregado. {msg}")
                 st.rerun()

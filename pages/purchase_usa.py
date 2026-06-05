@@ -42,14 +42,19 @@ def render():
         qty = c4.number_input("Cantidad", min_value=1, step=1, value=1)
         unit_cost = c5.number_input("Costo unitario USD", min_value=0.0, step=1.0)
         supplier = c6.text_input("Proveedor")
+        fiado = st.checkbox("💳 Fiado / a credito (no descuenta caja, registra deuda)", value=False)
         notes = st.text_area("Notas")
 
         if st.form_submit_button("Registrar compra USA"):
             register_purchase(
                 "USA", sku, name, category, qty, unit_cost, "USD",
                 "Caja USA", supplier, notes, st.session_state.user["username"],
+                fiado=fiado,
             )
-            st.success("Compra USA registrada.")
+            if fiado:
+                st.success("Compra USA registrada A CREDITO. La deuda queda pendiente por pagar.")
+            else:
+                st.success("Compra USA registrada. Se desconto de Caja USA.")
             st.rerun()
 
     st.dataframe(list_purchases("USA"), use_container_width=True, hide_index=True)

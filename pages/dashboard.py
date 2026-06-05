@@ -53,6 +53,30 @@ def render():
     e2.metric("Recibidos Colombia", data["shipments_received"])
     e3.metric("Stock Repuestos", data["parts_stock"])
 
+    # ── Cuentas por pagar (deudas) ──────────────────────
+    from db.debt import get_total_debt, list_debts, pay_debt
+    total_deuda = get_total_debt()
+    with st.expander(f"💸 Cuentas por pagar - Deudas ({money(total_deuda, 'COP')})", expanded=False):
+        if total_deuda == 0:
+            st.success("No hay deudas pendientes.")
+        else:
+            debts_df = list_debts(paid=0)
+            if not debts_df.empty:
+                for _, d in debts_df.iterrows():
+                    did = int(d["id"])
+                    c1, c2, c3, c4 = st.columns([2, 1.5, 1.5, 1])
+                    c1.write(f"**{d['supplier']}** - {d['concept']}")
+                    c2.write(money(float(d['amount']), d.get('currency', 'COP')))
+                    c3.write(str(d.get('date', ''))[:10])
+                    if c4.button("Pagar", key=f"paydebt_{did}"):
+                        try:
+                            pay_debt(did, st.session_state.user["username"])
+                            st.success(f"Deuda #{did} pagada. Se desconto de {d['cashbox']}.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(str(e))
+                    st.divider()
+
     with st.expander(f"📋 Cuentas por cobrar ({money(cuentas_por_cobrar, 'COP')})", expanded=False):
         if pending_repairs.empty:
             st.success("No hay cuentas pendientes.")
