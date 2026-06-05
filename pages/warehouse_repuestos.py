@@ -9,11 +9,14 @@ from db.purchase import register_purchase
 def render():
     header("Bodega Repuestos", "Inventario de repuestos para taller.")
     q = st.text_input("Buscar repuesto")
-    st.dataframe(
-        list_inventory("Repuestos", q),
-        use_container_width=True,
-        hide_index=True,
-    )
+    tab1, tab2 = st.tabs(["📦 Inventario", "📋 Historial de compras"])
+
+    with tab1:
+        st.dataframe(list_inventory("Repuestos", q), use_container_width=True, hide_index=True)
+
+    with tab2:
+        from db.purchase import list_purchases
+        st.dataframe(list_purchases("Repuestos"), use_container_width=True, hide_index=True)
 
     inventory = list_inventory("Repuestos")
 

@@ -4,7 +4,7 @@ import streamlit as st
 from components.layout import header
 from utils.format import money
 from db.product import list_inventory, generate_sku
-from db.purchase import register_purchase, list_purchases
+from db.purchase import register_purchase
 
 
 def render():
@@ -59,7 +59,7 @@ def render():
                 st.success("Compra Colombia registrada. Se desconto de Caja Colombia.")
             st.rerun()
 
-    st.dataframe(list_purchases("Colombia"), use_container_width=True, hide_index=True)
+    # El historial de compras ahora esta en Bodega Colombia → Historial de compras
 
     # ── Ensamblar producto ──────────────────────────────
     st.divider()
