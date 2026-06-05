@@ -58,6 +58,36 @@ def list_inventory(warehouse=None, q=""):
         return read_sql(con, sql, params)
 
 
+def get_product_names(warehouse):
+    """Lista de nombres unicos de productos en una bodega (para catalogo)."""
+    with get_db() as con:
+        rows = con.execute(
+            "SELECT DISTINCT name, category, attributes FROM products "
+            "WHERE warehouse = ? AND active = 1 ORDER BY name",
+            (warehouse,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def add_product_to_catalog(warehouse, name, category, attributes, user):
+    """
+    Agrega un producto al catalogo CON stock 0 (solo como plantilla).
+    attributes: dict con variantes (ej: {'modelo': 'Fat', 'capacidad': '500GB'})
+    """
+    import json
+    with get_db() as con:
+        cur = con.cursor()
+        sku = generate_sku(warehouse)
+        cur.execute(
+            "INSERT INTO products(sku, name, category, stock, min_stock, cost, price, "
+            "currency, warehouse, attributes, created_at) "
+            "VALUES (?, ?, ?, 0, 1, 0, 0, ?, ?, ?, ?)",
+            (sku, name.strip(), category, "COP" if warehouse != "USA" else "USD",
+             warehouse, json.dumps(attributes) if attributes else None, now()),
+        )
+        return cur.lastrowid
+
+
 def generate_sku(warehouse):
     """
     Genera el siguiente SKU automatico segun la bodega:

@@ -347,6 +347,9 @@ MIGRATABLE_COLUMNS = {
         "delivered_at": "TEXT",
         "additional_devices": "TEXT",
     },
+    "products": {
+        "attributes": "TEXT",
+    },
 }
 
 
