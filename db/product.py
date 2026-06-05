@@ -1,11 +1,11 @@
 """GestiÃ³n de productos e inventario."""
 
+import json
 from db.connection import get_db, read_sql
 from utils.format import now
 
 
 def add_or_update_product(cur, warehouse, sku, name, category, qty, unit_cost, currency, location, attributes=None):
-    import json
     if sku:
         row = cur.execute(
             "SELECT * FROM products WHERE warehouse = ? AND active = 1 AND sku = ? LIMIT 1",
@@ -22,24 +22,71 @@ def add_or_update_product(cur, warehouse, sku, name, category, qty, unit_cost, c
     attrs_json = json.dumps(attributes) if attributes else None
 
     if row:
-        pid = row["id"]
-        old_stock = row["stock"]
-        old_cost = row["cost"] or 0
-        new_stock = old_stock + qty
-        avg_cost = ((old_stock * old_cost) + (qty * unit_cost)) / new_stock if new_stock else unit_cost
-        cur.execute(
-            "UPDATE products SET stock = ?, cost = ?, currency = ?, attributes = COALESCE(?, attributes) WHERE id = ?",
-            (new_stock, avg_cost, currency, attrs_json, pid),
-        )
-        return pid
+        # Si el producto tiene los MISMOS atributos (o ambos sin atributos), aumentar stock
+        existing_attrs = row["attributes"]
+        same_attrs = _same_attributes(existing_attrs, attrs_json)
 
+        if same_attrs:
+            pid = row["id"]
+            old_stock = row["stock"]
+            old_cost = row["cost"] or 0
+            new_stock = old_stock + qty
+            avg_cost = ((old_stock * old_cost) + (qty * unit_cost)) / new_stock if new_stock else unit_cost
+            cur.execute(
+                "UPDATE products SET stock = ?, cost = ?, currency = ?, attributes = COALESCE(?, attributes) WHERE id = ?",
+                (new_stock, avg_cost, currency, attrs_json, pid),
+            )
+            return pid
+        # Si atributos son diferentes, no usar este row - buscar otro o crear nuevo
+
+    # Buscar por nombre + atributos exactos (sin importar SKU)
+    if attrs_json:
+        match = cur.execute(
+            "SELECT * FROM products WHERE warehouse = ? AND active = 1 AND name = ? AND attributes = ? LIMIT 1",
+            (warehouse, name, attrs_json),
+        ).fetchone()
+        if match:
+            pid = match["id"]
+            old_stock = match["stock"]
+            old_cost = match["cost"] or 0
+            new_stock = old_stock + qty
+            avg_cost = ((old_stock * old_cost) + (qty * unit_cost)) / new_stock if new_stock else unit_cost
+            cur.execute(
+                "UPDATE products SET stock = ?, cost = ?, currency = ? WHERE id = ?",
+                (new_stock, avg_cost, currency, pid),
+            )
+            return pid
+
+    # Crear nuevo producto (auto-generar SKU si no se paso uno)
+    if not sku:
+        new_sku = generate_sku(warehouse)
+    else:
+        new_sku = sku
     cur.execute(
         "INSERT INTO products(sku, name, category, stock, min_stock, cost, price, "
         "currency, location, warehouse, attributes, created_at) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (sku or None, name, category, qty, 2, unit_cost, 0, currency, location, warehouse, attrs_json, now()),
+        (new_sku, name, category, qty, 2, unit_cost, 0, currency, location, warehouse, attrs_json, now()),
     )
     return cur.lastrowid
+
+
+def _same_attributes(existing, new_json):
+    """Compara dos atributos JSON. Retorna True si son iguales o ambos nulos/vacios."""
+    import json
+    if existing == new_json:
+        return True
+    if not existing and not new_json:
+        return True
+    if (not existing or str(existing) in ("None", "", "null", "{}")) and \
+       (not new_json or str(new_json) in ("None", "", "null", "{}")):
+        return True
+    try:
+        e = json.loads(str(existing)) if existing else {}
+        n = json.loads(str(new_json)) if new_json else {}
+        return e == n
+    except Exception:
+        return False
 
 
 def list_inventory(warehouse=None, q=""):
