@@ -36,49 +36,42 @@ def _render_inventory():
     grouped = df.groupby("name")
     st.caption(f"{len(grouped)} productos diferentes | {int(df['stock'].sum())} unidades en stock")
 
-    # ── Tabla resumen ──────────────────────────────────
-    summary_data = []
-    for name, group in grouped:
-        total = int(group["stock"].sum())
-        cat = group.iloc[0].get("category") or "-"
-        items = len(group)
-        summary_data.append({"Producto": name, "Categoria": cat, "Stock total": total, "Variantes": items})
-
-    summary_df = pd.DataFrame(summary_data)
-    st.dataframe(summary_df, use_container_width=True, hide_index=True, height=min(35 * len(summary_data) + 38, 300))
-
-    # ── Detalle por producto ───────────────────────────
-    st.subheader("Detalle por producto")
-    product_names = sorted(grouped.groups.keys())
-    selected_product = st.selectbox("Selecciona un producto para ver sus variantes", product_names)
-
-    if selected_product:
-        group = grouped.get_group(selected_product)
-        # Tabla de variantes
-        rows = []
-        for _, row in group.iterrows():
-            attrs_parts = []
-            raw = row.get("attributes")
-            if raw and str(raw) not in ("None", "", "null"):
-                try:
-                    a = json.loads(str(raw))
-                    attrs_parts = [f"{k}: {v}" for k, v in a.items()]
-                except Exception:
-                    pass
-            rows.append({
-                "SKU": row["sku"],
-                "Atributos": " | ".join(attrs_parts) if attrs_parts else "Sin variantes",
-                "Stock": int(row["stock"]),
-                "Costo": float(row["cost"]),
-                "Precio": float(row.get("price", 0)),
-            })
-
-        detail_df = pd.DataFrame(rows)
-        # Formatear monedas
-        st.dataframe(detail_df, use_container_width=True, hide_index=True)
-
+    # ── Tabla unificada con botones para expandir ──────
+    for name, group in sorted(grouped, key=lambda x: x[0]):
         total_stock = int(group["stock"].sum())
-        st.caption(f"Stock total de '{selected_product}': {total_stock} unidades")
+        cat = group.iloc[0].get("category") or "-"
+        variants_count = len(group)
+
+        c1, c2, c3, c4 = st.columns([2.5, 1, 1, 1])
+        c1.write(f"**{name}**")
+        c2.write(f"{cat}")
+        c3.write(f"Stock: {total_stock}")
+        if c4.button(f"🔍 {variants_count} variantes", key=f"det_{name}"):
+            st.session_state[f"expanded_{name}"] = not st.session_state.get(f"expanded_{name}", False)
+
+        # Mostrar detalle si esta expandido
+        if st.session_state.get(f"expanded_{name}", False):
+            rows = []
+            for _, row in group.iterrows():
+                attrs_parts = []
+                raw = row.get("attributes")
+                if raw and str(raw) not in ("None", "", "null"):
+                    try:
+                        a = json.loads(str(raw))
+                        attrs_parts = [f"{k}: {v}" for k, v in a.items()]
+                    except Exception:
+                        pass
+                rows.append({
+                    "SKU": row["sku"],
+                    "Atributos": " | ".join(attrs_parts) if attrs_parts else "—",
+                    "Stock": int(row["stock"]),
+                    "Costo": float(row["cost"]),
+                })
+            detail_df = pd.DataFrame(rows)
+            st.dataframe(detail_df, use_container_width=True, hide_index=True)
+            st.caption("")
+
+        st.divider()
 
 
 def _render_catalog():
