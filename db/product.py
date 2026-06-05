@@ -91,7 +91,7 @@ def _same_attributes(existing, new_json):
 
 def list_inventory(warehouse=None, q=""):
     sql = ("SELECT id, sku, name, category, stock, min_stock, cost, price, "
-           "currency, location, warehouse FROM products WHERE active = 1")
+           "currency, location, warehouse, attributes FROM products WHERE active = 1")
     params = []
 
     if warehouse:
